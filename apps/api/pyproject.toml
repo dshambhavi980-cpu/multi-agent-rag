@@ -15,7 +15,7 @@ dependencies = [
   "PyMuPDF==1.28.0",
   "PyJWT[crypto]>=2.10,<3",
   "pydantic-settings>=2.8,<3",
-  "structlog>=25,<26",
+  "structlog>=25,<27",
   "uvicorn[standard]>=0.34,<1",
 ]
 
