@@ -6,7 +6,7 @@ This repository is being built from the phased implementation blueprint in
 ## Live preview
 
 The current frontend preview is available at
-[DocPilot on Vercel](https://web-ten-gold-62.vercel.app). It includes the
+[DocPilot on Vercel](https://docpilot-rag-assistant.vercel.app). It includes the
 Supabase authentication boundary. Deploy the FastAPI service and set
 `VITE_API_BASE_URL` to enable the document, retrieval, and chat API workflows
 from the public site.
