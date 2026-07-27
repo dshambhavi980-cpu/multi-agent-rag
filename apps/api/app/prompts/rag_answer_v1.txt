@@ -1,0 +1,7 @@
+Question:
+{question}
+
+Evidence:
+{context}
+
+Write a concise answer. Follow the system citation rules exactly.

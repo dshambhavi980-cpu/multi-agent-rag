@@ -1,0 +1,37 @@
+minimum_pre_commit_version: "4.0.0"
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  - repo: local
+    hooks:
+      - id: contracts
+        name: Validate API and event contracts
+        entry: python scripts/check_contracts.py
+        language: system
+        pass_filenames: false
+      - id: migrations
+        name: Validate migration naming and ordering
+        entry: python scripts/check_migrations.py
+        language: system
+        pass_filenames: false
+      - id: ruff
+        name: Ruff lint
+        entry: python -m ruff check apps/api
+        language: system
+        pass_filenames: false
+      - id: ruff-format
+        name: Ruff format
+        entry: python -m ruff format --check apps/api
+        language: system
+        pass_filenames: false
+      - id: mypy
+        name: Mypy strict
+        entry: python -m mypy apps/api/app apps/api/tests
+        language: system
+        pass_filenames: false
+      - id: web-check
+        name: Frontend lint, typecheck, tests, and build
+        entry: npm run check:web
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

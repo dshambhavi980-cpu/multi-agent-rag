@@ -1,0 +1,95 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "multi-agent-rag-api"
+version = "0.1.0"
+description = "FastAPI service for the Multi-Agent Hybrid RAG assistant"
+readme = "README.md"
+requires-python = ">=3.12,<3.14"
+dependencies = [
+  "beautifulsoup4==4.15.0",
+  "fastapi>=0.115,<1",
+  "httpx>=0.28,<1",
+  "PyMuPDF==1.28.0",
+  "PyJWT[crypto]>=2.10,<3",
+  "pydantic-settings>=2.8,<3",
+  "structlog>=25,<26",
+  "uvicorn[standard]>=0.34,<1",
+]
+
+[project.scripts]
+docpilot-reindex = "app.cli.reindex:main"
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.15,<2",
+  "pre-commit>=4,<5",
+  "pytest>=8.3,<9",
+  "pytest-asyncio>=0.25,<1",
+  "pytest-cov>=6,<8",
+  "pyyaml>=6,<7",
+  "ruff>=0.11,<1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-config --strict-markers --cov=app --cov-report=term-missing --cov-fail-under=90"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["app"]
+
+[tool.coverage.report]
+exclude_also = [
+  "if TYPE_CHECKING:",
+  "if __name__ == .__main__.:",
+  "raise NotImplementedError",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+  "A",
+  "ASYNC",
+  "B",
+  "C4",
+  "E",
+  "F",
+  "I",
+  "N",
+  "PERF",
+  "PIE",
+  "PL",
+  "PT",
+  "RUF",
+  "S",
+  "SIM",
+  "T20",
+  "UP",
+  "W",
+]
+ignore = ["PLR2004"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+plugins = ["pydantic.mypy"]
+warn_unreachable = true
+show_error_codes = true
+pretty = true
+
+[[tool.mypy.overrides]]
+module = "structlog.*"
+ignore_missing_imports = true

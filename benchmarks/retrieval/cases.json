@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "description": "Phase 5 retrieval relevance cases for the bundled benchmark corpus.",
+  "cases": [
+    {
+      "id": "exact-procedure-code",
+      "query": "ZX-42 reset",
+      "expected_filenames": ["operations.md"],
+      "notes": "Exact technical identifiers should benefit from sparse retrieval."
+    },
+    {
+      "id": "semantic-account-recovery",
+      "query": "How can a locked-out user regain access?",
+      "expected_filenames": ["recovery.md"],
+      "notes": "Meaning should match even without exact wording."
+    },
+    {
+      "id": "quoted-audit-phrase",
+      "query": "\"audit event\" emergency token",
+      "expected_filenames": ["operations.md"],
+      "notes": "Web-search phrase syntax must remain supported."
+    },
+    {
+      "id": "tag-filtered-operations",
+      "query": "reset procedure",
+      "expected_filenames": ["operations.md"],
+      "filters": {"tags": ["operations"]},
+      "notes": "Metadata filtering occurs before ranking."
+    },
+    {
+      "id": "content-type-filter",
+      "query": "identity verification",
+      "expected_filenames": ["recovery.md"],
+      "filters": {"content_types": ["text/markdown"]},
+      "notes": "Content type filters retain relevant Markdown sources."
+    },
+    {
+      "id": "negative-web-search",
+      "query": "token -private",
+      "expected_filenames": ["operations.md"],
+      "notes": "Negation should exclude explicitly private content."
+    }
+  ]
+}

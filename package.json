@@ -1,0 +1,25 @@
+{
+  "name": "multi-agent-rag",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=24 <25",
+    "npm": ">=11 <12"
+  },
+  "overrides": {
+    "brace-expansion": "5.0.8",
+    "eslint": "10.8.0"
+  },
+  "scripts": {
+    "dev:web": "npm --workspace @docpilot/web run dev",
+    "build:web": "npm --workspace @docpilot/web run build",
+    "lint:web": "npm --workspace @docpilot/web run lint",
+    "typecheck:web": "npm --workspace @docpilot/web run typecheck",
+    "test:web": "npm --workspace @docpilot/web run test",
+    "test:e2e": "npm --workspace @docpilot/web run test:e2e",
+    "check:web": "npm run lint:web && npm run typecheck:web && npm run test:web && npm run build:web"
+  }
+}

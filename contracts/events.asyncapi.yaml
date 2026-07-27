@@ -1,0 +1,479 @@
+asyncapi: 2.6.0
+info:
+  title: Multi-Agent Hybrid RAG Events
+  version: 0.1.0
+  description: |
+    Initial Phase 0 event contract. Run events are delivered over authenticated
+    Server-Sent Events. Ingestion and approval records are also observable through
+    authorized Supabase Realtime subscriptions. PostgreSQL remains the source of
+    truth for reconnect and recovery.
+
+defaultContentType: application/json
+
+servers:
+  hosted:
+    url: https://example.onrender.com
+    protocol: https
+    description: Hosted FastAPI SSE endpoint
+  local:
+    url: http://localhost:8000
+    protocol: http
+    description: Local FastAPI SSE endpoint
+
+channels:
+  /v1/runs/{runId}/events:
+    description: Ordered live events for one authorized run.
+    parameters:
+      runId:
+        description: Run identifier.
+        schema:
+          type: string
+          format: uuid
+    subscribe:
+      operationId: receiveRunEvents
+      summary: Receive answer tokens and run-state events.
+      bindings:
+        http:
+          type: response
+      message:
+        oneOf:
+          - $ref: "#/components/messages/RunSnapshot"
+          - $ref: "#/components/messages/RunStatusChanged"
+          - $ref: "#/components/messages/AgentStepStarted"
+          - $ref: "#/components/messages/AgentStepCompleted"
+          - $ref: "#/components/messages/RetrievalCompleted"
+          - $ref: "#/components/messages/AnswerDelta"
+          - $ref: "#/components/messages/CitationsAvailable"
+          - $ref: "#/components/messages/ApprovalRequired"
+          - $ref: "#/components/messages/RunCompleted"
+          - $ref: "#/components/messages/RunFailed"
+          - $ref: "#/components/messages/Heartbeat"
+
+  workspace/{workspaceId}/ingestion:
+    description: Durable ingestion status changes exposed through Realtime.
+    parameters:
+      workspaceId:
+        description: Authorized workspace identifier.
+        schema:
+          type: string
+          format: uuid
+    subscribe:
+      operationId: receiveIngestionUpdates
+      message:
+        $ref: "#/components/messages/IngestionStatusChanged"
+
+  workspace/{workspaceId}/approvals:
+    description: Durable approval changes exposed through Realtime.
+    parameters:
+      workspaceId:
+        description: Authorized workspace identifier.
+        schema:
+          type: string
+          format: uuid
+    subscribe:
+      operationId: receiveApprovalUpdates
+      message:
+        $ref: "#/components/messages/ApprovalStatusChanged"
+
+components:
+  messages:
+    RunSnapshot:
+      name: run.snapshot
+      title: Run snapshot
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required: [status, mode, step_count]
+            properties:
+              status:
+                $ref: "#/components/schemas/RunStatus"
+              mode:
+                type: string
+                enum: [simple, agentic]
+              step_count:
+                type: integer
+                minimum: 0
+                maximum: 8
+              accumulated_text:
+                type: string
+
+    RunStatusChanged:
+      name: run.status_changed
+      title: Run status changed
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required: [previous_status, status]
+            properties:
+              previous_status:
+                $ref: "#/components/schemas/RunStatus"
+              status:
+                $ref: "#/components/schemas/RunStatus"
+              reason_code:
+                type: [string, "null"]
+
+    AgentStepStarted:
+      name: agent.step_started
+      title: Agent step started
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required: [step_id, node, step_number]
+            properties:
+              step_id:
+                type: string
+                format: uuid
+              node:
+                type: string
+              step_number:
+                type: integer
+                minimum: 1
+                maximum: 8
+              summary:
+                type: string
+                description: Concise operational decision, not hidden reasoning.
+
+    AgentStepCompleted:
+      name: agent.step_completed
+      title: Agent step completed
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required: [step_id, node, duration_ms, outcome]
+            properties:
+              step_id:
+                type: string
+                format: uuid
+              node:
+                type: string
+              duration_ms:
+                type: integer
+                minimum: 0
+              outcome:
+                type: string
+                enum: [succeeded, failed, skipped]
+              summary:
+                type: string
+
+    RetrievalCompleted:
+      name: retrieval.completed
+      title: Hybrid retrieval completed
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required:
+              - query_id
+              - dense_candidates
+              - sparse_candidates
+              - selected_chunks
+              - duration_ms
+              - cache_hit
+            properties:
+              query_id:
+                type: string
+                format: uuid
+              dense_candidates:
+                type: integer
+                minimum: 0
+              sparse_candidates:
+                type: integer
+                minimum: 0
+              selected_chunks:
+                type: integer
+                minimum: 0
+                maximum: 10
+              duration_ms:
+                type: integer
+                minimum: 0
+              cache_hit:
+                type: boolean
+              evidence:
+                type: array
+                maxItems: 10
+                items:
+                  $ref: "#/components/schemas/EvidenceReference"
+
+    AnswerDelta:
+      name: answer.delta
+      title: Streamed answer text delta
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required: [delta]
+            properties:
+              delta:
+                type: string
+                minLength: 1
+
+    CitationsAvailable:
+      name: citations.available
+      title: Validated citations are available
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required: [citations]
+            properties:
+              citations:
+                type: array
+                maxItems: 10
+                items:
+                  $ref: "#/components/schemas/Citation"
+
+    ApprovalRequired:
+      name: approval.required
+      title: Run paused for human approval
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required: [approval_id, risk_level, reasons]
+            properties:
+              approval_id:
+                type: string
+                format: uuid
+              risk_level:
+                type: string
+                enum: [low, medium, high, critical]
+              reasons:
+                type: array
+                minItems: 1
+                items:
+                  type: string
+
+    RunCompleted:
+      name: run.completed
+      title: Run completed
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required:
+              - message_id
+              - answer_status
+              - confidence
+              - duration_ms
+            properties:
+              message_id:
+                type: string
+                format: uuid
+              answer_status:
+                type: string
+                enum: [grounded, insufficient_evidence]
+              confidence:
+                type: number
+                minimum: 0
+                maximum: 1
+              duration_ms:
+                type: integer
+                minimum: 0
+
+    RunFailed:
+      name: run.failed
+      title: Run failed
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            required: [code, retryable]
+            properties:
+              code:
+                type: string
+                pattern: "^[A-Z][A-Z0-9_]+$"
+              detail:
+                type: string
+              retryable:
+                type: boolean
+
+    Heartbeat:
+      name: stream.heartbeat
+      title: SSE heartbeat
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/BaseRunEvent"
+          - type: object
+            properties:
+              comment:
+                type: string
+
+    IngestionStatusChanged:
+      name: ingestion.status_changed
+      title: Durable ingestion status changed
+      payload:
+        type: object
+        additionalProperties: false
+        required:
+          - event_id
+          - occurred_at
+          - workspace_id
+          - document_id
+          - job_id
+          - status
+          - progress
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          occurred_at:
+            type: string
+            format: date-time
+          workspace_id:
+            type: string
+            format: uuid
+          document_id:
+            type: string
+            format: uuid
+          job_id:
+            type: string
+            format: uuid
+          status:
+            type: string
+            enum: [queued, processing, completed, failed, quarantined, cancelled]
+          stage:
+            type: [string, "null"]
+          progress:
+            type: number
+            minimum: 0
+            maximum: 1
+          error_code:
+            type: [string, "null"]
+
+    ApprovalStatusChanged:
+      name: approval.status_changed
+      title: Durable approval status changed
+      payload:
+        type: object
+        additionalProperties: false
+        required:
+          - event_id
+          - occurred_at
+          - workspace_id
+          - approval_id
+          - run_id
+          - status
+        properties:
+          event_id:
+            type: string
+            format: uuid
+          occurred_at:
+            type: string
+            format: date-time
+          workspace_id:
+            type: string
+            format: uuid
+          approval_id:
+            type: string
+            format: uuid
+          run_id:
+            type: string
+            format: uuid
+          status:
+            type: string
+            enum: [pending, approved, rejected, revision_requested, expired]
+          reviewer_id:
+            type: [string, "null"]
+            format: uuid
+
+  schemas:
+    BaseRunEvent:
+      type: object
+      required:
+        - event_id
+        - event_type
+        - occurred_at
+        - run_id
+        - workspace_id
+        - sequence
+        - schema_version
+      properties:
+        event_id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        run_id:
+          type: string
+          format: uuid
+        workspace_id:
+          type: string
+          format: uuid
+        sequence:
+          type: integer
+          minimum: 0
+        schema_version:
+          const: "0.1.0"
+        trace_id:
+          type: string
+          format: uuid
+
+    RunStatus:
+      type: string
+      enum:
+        - accepted
+        - running
+        - awaiting_approval
+        - cancelling
+        - cancelled
+        - completed
+        - failed
+        - timed_out
+
+    EvidenceReference:
+      type: object
+      additionalProperties: false
+      required:
+        - document_id
+        - chunk_id
+        - dense_rank
+        - sparse_rank
+        - fused_score
+      properties:
+        document_id:
+          type: string
+          format: uuid
+        chunk_id:
+          type: string
+          format: uuid
+        dense_rank:
+          type: [integer, "null"]
+          minimum: 1
+        sparse_rank:
+          type: [integer, "null"]
+          minimum: 1
+        fused_score:
+          type: number
+          minimum: 0
+
+    Citation:
+      type: object
+      additionalProperties: false
+      required: [citation_id, document_id, chunk_id, label, quote]
+      properties:
+        citation_id:
+          type: string
+          pattern: "^C[1-9][0-9]*$"
+        document_id:
+          type: string
+          format: uuid
+        chunk_id:
+          type: string
+          format: uuid
+        label:
+          type: string
+        page:
+          type: [integer, "null"]
+          minimum: 1
+        section:
+          type: [string, "null"]
+        quote:
+          type: string
+          maxLength: 1000
