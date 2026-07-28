@@ -1520,7 +1520,8 @@ components:
 
     Conversation:
       type: object
-      required: [id, workspace_id, owner_id, created_at, updated_at]
+      required:
+        [id, workspace_id, owner_id, summary_message_count, created_at, updated_at]
       properties:
         id:
           type: string
@@ -1535,6 +1536,16 @@ components:
           type: [string, "null"]
         summary:
           type: [string, "null"]
+        summary_through_message_id:
+          type: [string, "null"]
+          format: uuid
+        summary_message_count:
+          type: integer
+          minimum: 0
+          default: 0
+        summary_updated_at:
+          type: [string, "null"]
+          format: date-time
         created_at:
           type: string
           format: date-time

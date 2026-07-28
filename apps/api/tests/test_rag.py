@@ -249,6 +249,9 @@ async def test_service_conversation_run_and_event_snapshots() -> None:
                 "owner_id": str(USER_ID),
                 "title": "Policy",
                 "summary": None,
+                "summary_through_message_id": None,
+                "summary_message_count": 0,
+                "summary_updated_at": None,
                 "created_at": NOW.isoformat(),
                 "updated_at": NOW.isoformat(),
             }
@@ -347,6 +350,7 @@ async def test_service_conversation_run_and_event_snapshots() -> None:
     )
 
     assert created.title == "Policy"
+    assert created.summary_message_count == 0
     assert listed.items[0].id == CONVERSATION_ID
     assert detail.messages == []
     assert snapshot.status == "running"

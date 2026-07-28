@@ -37,6 +37,9 @@ class Conversation(BaseModel):
     owner_id: UUID
     title: str | None = None
     summary: str | None = None
+    summary_through_message_id: UUID | None = None
+    summary_message_count: int = Field(default=0, ge=0)
+    summary_updated_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
