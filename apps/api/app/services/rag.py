@@ -24,10 +24,11 @@ from app.models.rag import (
     RunAccepted,
 )
 from app.models.retrieval import RetrievalFilters, RetrievalRequest, RetrievalResponse
+from app.services.memory import MemoryService
 from app.services.retrieval import HybridRetrievalService
 
-PROMPT_VERSION = "rag-system-v1+answer-v1"
-AGENT_PROMPT_VERSION = "agent-system-v1"
+PROMPT_VERSION = "rag-system-v1+answer-v1+memory-v1"
+AGENT_PROMPT_VERSION = "agent-system-v1+memory-v1"
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
 SYSTEM_PROMPT = (PROMPT_DIR / "rag_system_v1.txt").read_text(encoding="utf-8").strip()
 ANSWER_PROMPT = (PROMPT_DIR / "rag_answer_v1.txt").read_text(encoding="utf-8").strip()
@@ -129,7 +130,7 @@ def confidence_score(
 
 
 class GroundedRagService:
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         *,
         admin: SupabaseAdminClient,
@@ -137,12 +138,14 @@ class GroundedRagService:
         generation: StreamingGenerationClient,
         config: RagConfig,
         orchestrator: AgentOrchestrator | None = None,
+        memory: MemoryService | None = None,
     ) -> None:
         self.admin = admin
         self.retrieval = retrieval
         self.generation = generation
         self.config = config
         self.orchestrator = orchestrator
+        self.memory = memory
         self._tasks: dict[UUID, asyncio.Task[None]] = {}
 
     async def aclose(self) -> None:
@@ -239,6 +242,8 @@ class GroundedRagService:
                     request_id=request_id,
                     body=body,
                     route_reason=decision.reason,
+                    conversation_id=conversation_id,
+                    source_message_id=accepted.message_id,
                 )
                 if decision.mode == "agentic"
                 else self._execute(
@@ -247,6 +252,8 @@ class GroundedRagService:
                     actor_id=actor_id,
                     request_id=request_id,
                     body=body,
+                    conversation_id=conversation_id,
+                    source_message_id=accepted.message_id,
                 )
             )
             task = asyncio.create_task(operation, name=f"rag-run-{accepted.run_id}")
@@ -359,7 +366,16 @@ class GroundedRagService:
         request_id: UUID,
         body: CreateMessageRequest,
         route_reason: str,
+        conversation_id: UUID,
+        source_message_id: UUID,
     ) -> None:
+        memory_context = await self._prepare_memory(
+            workspace_id=workspace_id,
+            actor_id=actor_id,
+            conversation_id=conversation_id,
+            source_message_id=source_message_id,
+            message=body.content,
+        )
         state: AgentState = {
             "run_id": str(run_id),
             "workspace_id": str(workspace_id),
@@ -375,6 +391,8 @@ class GroundedRagService:
             "started_at": time(),
             "resume_node": "supervisor",
             "route_reason": route_reason,
+            "conversation_id": str(conversation_id),
+            "memory_context": memory_context,
         }
         await self._execute_agentic_state(state)
 
@@ -449,6 +467,12 @@ class GroundedRagService:
                     "duration_ms": round(timings["total_ms"]),
                 },
             )
+            if state.get("conversation_id"):
+                await self._maintain_memory(
+                    workspace_id=workspace_id,
+                    actor_id=UUID(state["actor_id"]),
+                    conversation_id=UUID(state["conversation_id"]),
+                )
         except asyncio.CancelledError:
             await self._transition(run_id, workspace_id, "cancelled", "cancelled")
             await self._event(
@@ -483,7 +507,7 @@ class GroundedRagService:
                 started=started,
             )
 
-    async def _execute(
+    async def _execute(  # noqa: PLR0913
         self,
         *,
         run_id: UUID,
@@ -491,6 +515,8 @@ class GroundedRagService:
         actor_id: UUID,
         request_id: UUID,
         body: CreateMessageRequest,
+        conversation_id: UUID,
+        source_message_id: UUID,
     ) -> None:
         started = perf_counter()
         accumulated = ""
@@ -505,16 +531,25 @@ class GroundedRagService:
                     {"previous_status": "accepted", "status": "running"},
                 )
                 retrieval_started = perf_counter()
-                retrieval = await self.retrieval.search(
-                    workspace_id=workspace_id,
-                    actor_id=actor_id,
-                    request_id=request_id,
-                    request=RetrievalRequest(
-                        query=body.content,
-                        mode="hybrid",
-                        limit=self.config.evidence_limit,
-                        candidate_count=self.config.candidate_count,
-                        filters=RetrievalFilters(document_ids=body.document_ids),
+                retrieval, memory_context = await asyncio.gather(
+                    self.retrieval.search(
+                        workspace_id=workspace_id,
+                        actor_id=actor_id,
+                        request_id=request_id,
+                        request=RetrievalRequest(
+                            query=body.content,
+                            mode="hybrid",
+                            limit=self.config.evidence_limit,
+                            candidate_count=self.config.candidate_count,
+                            filters=RetrievalFilters(document_ids=body.document_ids),
+                        ),
+                    ),
+                    self._prepare_memory(
+                        workspace_id=workspace_id,
+                        actor_id=actor_id,
+                        conversation_id=conversation_id,
+                        source_message_id=source_message_id,
+                        message=body.content,
                     ),
                 )
                 timings["retrieval_ms"] = round((perf_counter() - retrieval_started) * 1000, 3)
@@ -555,6 +590,11 @@ class GroundedRagService:
                     await self._complete_insufficient(
                         run_id, workspace_id, retrieval, timings, started
                     )
+                    await self._maintain_memory(
+                        workspace_id=workspace_id,
+                        actor_id=actor_id,
+                        conversation_id=conversation_id,
+                    )
                     return
 
                 await self._transition(run_id, workspace_id, "running", "generation")
@@ -564,6 +604,7 @@ class GroundedRagService:
                     workspace_id=workspace_id,
                     question=body.content,
                     evidence=evidence,
+                    memory_context=memory_context,
                 )
                 timings["generation_ms"] = round((perf_counter() - generation_started) * 1000, 3)
                 timings["total_ms"] = round((perf_counter() - started) * 1000, 3)
@@ -620,6 +661,11 @@ class GroundedRagService:
                         "confidence": retrieval_quality_confidence,
                         "duration_ms": round(timings["total_ms"]),
                     },
+                )
+                await self._maintain_memory(
+                    workspace_id=workspace_id,
+                    actor_id=actor_id,
+                    conversation_id=conversation_id,
                 )
         except asyncio.CancelledError:
             timings["total_ms"] = round((perf_counter() - started) * 1000, 3)
@@ -680,12 +726,15 @@ class GroundedRagService:
         workspace_id: UUID,
         question: str,
         evidence: list[dict[str, Any]],
+        memory_context: str = "",
     ) -> ValidatedAnswer:
         allowed = {str(item["citation_id"]) for item in evidence}
         context = "\n\n".join(
             f"[{item['citation_id']}] {item['label']}\n{item['quote']}" for item in evidence
         )
         prompt = ANSWER_PROMPT.format(question=question, context=context)
+        if memory_context:
+            prompt = f"{prompt}\n\nConversation memory:\n{memory_context}"
         buffer = ""
         accepted_segments: list[str] = []
         used: set[str] = set()
@@ -814,6 +863,47 @@ class GroundedRagService:
                 "duration_ms": round(timings["total_ms"]),
             },
         )
+
+    async def _prepare_memory(
+        self,
+        *,
+        workspace_id: UUID,
+        actor_id: UUID,
+        conversation_id: UUID,
+        source_message_id: UUID,
+        message: str,
+    ) -> str:
+        if self.memory is None:
+            return ""
+        try:
+            await self.memory.remember_explicit(
+                workspace_id=workspace_id,
+                actor_id=actor_id,
+                conversation_id=conversation_id,
+                source_message_id=source_message_id,
+                message=message,
+            )
+            return await self.memory.prompt_context(
+                workspace_id=workspace_id,
+                actor_id=actor_id,
+                conversation_id=conversation_id,
+            )
+        except Exception:
+            get_logger().exception(
+                "memory_context_unavailable",
+                conversation_id=str(conversation_id),
+            )
+            return ""
+
+    async def _maintain_memory(
+        self, *, workspace_id: UUID, actor_id: UUID, conversation_id: UUID
+    ) -> None:
+        if self.memory is not None:
+            await self.memory.maintain_conversation(
+                workspace_id=workspace_id,
+                actor_id=actor_id,
+                conversation_id=conversation_id,
+            )
 
     def _evidence(self, retrieval: RetrievalResponse) -> list[dict[str, Any]]:
         evidence: list[dict[str, Any]] = []

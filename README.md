@@ -92,6 +92,18 @@ Phase 7 implements bounded multi-agent orchestration:
 - Strict step, recursion, concurrency, time, context, and output budgets.
 - Prompt-injection containment and citation review before answer publication.
 
+Phase 8 implements attributable, bounded memory:
+
+- Existing conversation messages feed a fixed-size recent-history window.
+- Older turns roll into a 4,000-character conversation summary.
+- Only explicit `remember...` requests are auto-stored, at confidence `1.0`.
+- Private and workspace-shared visibility is enforced with owner-aware RLS.
+- Every memory exposes source, confidence, visibility, expiry, and provenance.
+- Memory is isolated as untrusted context and cannot replace system instructions
+  or document citations.
+- Users can inspect and delete memory from the workspace Memory view.
+- Expired and soft-deleted records are purged by a daily PostgreSQL cron job.
+
 ## Quick start
 
 Requirements: Python 3.12+, Node.js 24+, and optionally Docker.

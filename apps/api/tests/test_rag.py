@@ -1,6 +1,8 @@
 import asyncio
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import AsyncMock
 from uuid import UUID
 
 import pytest
@@ -23,6 +25,8 @@ MESSAGE_ID = UUID("80000000-0000-4000-8000-000000000001")
 DOCUMENT_ID = UUID("40000000-0000-4000-8000-000000000001")
 CHUNK_ID = UUID("50000000-0000-4000-8000-000000000001")
 TRACE_ID = UUID("60000000-0000-4000-8000-000000000001")
+CONVERSATION_ID = UUID("90000000-0000-4000-8000-000000000001")
+NOW = datetime(2026, 7, 29, tzinfo=UTC)
 
 
 def retrieval_response(*, items: bool = True) -> RetrievalResponse:
@@ -134,6 +138,8 @@ async def execute(instance: GroundedRagService) -> None:
         actor_id=USER_ID,
         request_id=UUID(int=9),
         body=CreateMessageRequest(content="How is the emergency token rotated?"),
+        conversation_id=UUID(int=10),
+        source_message_id=MESSAGE_ID,
     )
 
 
@@ -231,3 +237,261 @@ def test_confidence_combines_retrieval_coverage_review_and_conflict() -> None:
     conflict = confidence_score(response, coverage=1, review_score=1, conflicting=True)
     assert normal > 0.8
     assert conflict == 0.35
+
+
+async def test_service_conversation_run_and_event_snapshots() -> None:
+    class SnapshotAdmin(Admin):
+        async def rpc(self, name: str, payload: dict[str, Any]) -> Any:  # noqa: PLR0911
+            self.calls.append((name, payload))
+            conversation = {
+                "id": str(CONVERSATION_ID),
+                "workspace_id": str(WORKSPACE_ID),
+                "owner_id": str(USER_ID),
+                "title": "Policy",
+                "summary": None,
+                "created_at": NOW.isoformat(),
+                "updated_at": NOW.isoformat(),
+            }
+            run = {
+                "id": str(RUN_ID),
+                "conversation_id": str(CONVERSATION_ID),
+                "status": "running",
+                "mode": "simple",
+                "current_node": "retrieval",
+                "step_count": 1,
+                "confidence": None,
+                "answer_status": None,
+                "output_message_id": None,
+                "error": None,
+                "created_at": NOW.isoformat(),
+                "updated_at": NOW.isoformat(),
+                "completed_at": None,
+            }
+            if name == "create_conversation":
+                return conversation
+            if name == "list_conversations":
+                return {"items": [conversation], "next_cursor": None}
+            if name == "get_conversation":
+                return {**conversation, "messages": []}
+            if name == "start_rag_run":
+                return {
+                    "run_id": str(RUN_ID),
+                    "message_id": str(MESSAGE_ID),
+                    "status": "completed",
+                    "events_url": f"/v1/runs/{RUN_ID}/events",
+                }
+            if name in {"get_rag_run", "request_rag_run_cancel"}:
+                return run
+            if name == "get_rag_run_events":
+                return [
+                    {
+                        "id": str(UUID(int=12)),
+                        "sequence": 1,
+                        "event_type": "run.status_changed",
+                        "payload": {"status": "running"},
+                        "occurred_at": NOW.isoformat(),
+                    }
+                ]
+            return True
+
+    admin = SnapshotAdmin()
+    instance = service(admin, retrieval_response(), Generation())
+
+    created = await instance.create_conversation(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        title="Policy",
+        idempotency_key="0123456789abcdef",
+    )
+    listed = await instance.list_conversations(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        limit=10,
+    )
+    detail = await instance.get_conversation(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        conversation_id=CONVERSATION_ID,
+    )
+    snapshot = await instance.get_run(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        run_id=RUN_ID,
+    )
+    cancelled = await instance.cancel(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        run_id=RUN_ID,
+    )
+    events = await instance.events(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        run_id=RUN_ID,
+        after_sequence=0,
+    )
+    simple = await instance.start_run(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        conversation_id=CONVERSATION_ID,
+        request_id=UUID(int=14),
+        idempotency_key="0123456789abcdef",
+        body=CreateMessageRequest(content="What is the policy?", force_mode="simple"),
+    )
+    agentic = await instance.start_run(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        conversation_id=CONVERSATION_ID,
+        request_id=UUID(int=15),
+        idempotency_key="fedcba9876543210",
+        body=CreateMessageRequest(content="Compare the policy.", force_mode="agentic"),
+    )
+
+    assert created.title == "Policy"
+    assert listed.items[0].id == CONVERSATION_ID
+    assert detail.messages == []
+    assert snapshot.status == "running"
+    assert cancelled.id == RUN_ID
+    assert events[0]["sequence"] == 1
+    assert simple.status == "completed"
+    assert agentic.status == "completed"
+    modes = [
+        payload["p_mode"] for name, payload in admin.calls if name == "start_rag_run"
+    ]
+    assert modes == ["simple", "agentic"]
+
+
+async def test_start_run_dispatches_simple_and_agentic_background_paths() -> None:
+    class AcceptedAdmin(Admin):
+        async def rpc(self, name: str, payload: dict[str, Any]) -> Any:
+            self.calls.append((name, payload))
+            assert name == "start_rag_run"
+            return {
+                "run_id": str(RUN_ID),
+                "message_id": str(MESSAGE_ID),
+                "status": "accepted",
+                "events_url": f"/v1/runs/{RUN_ID}/events",
+            }
+
+    simple = service(AcceptedAdmin(), retrieval_response(), Generation())
+    simple._execute = AsyncMock()  # type: ignore[method-assign]
+    accepted = await simple.start_run(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        conversation_id=CONVERSATION_ID,
+        request_id=UUID(int=16),
+        idempotency_key="0123456789abcdef",
+        body=CreateMessageRequest(content="What is the policy?", force_mode="simple"),
+    )
+    await asyncio.sleep(0)
+    simple._execute.assert_awaited_once()  # type: ignore[attr-defined]
+    assert accepted.status == "accepted"
+
+    agentic = service(AcceptedAdmin(), retrieval_response(), Generation())
+    agentic._execute_agentic = AsyncMock()  # type: ignore[method-assign]
+    await agentic.start_run(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        conversation_id=CONVERSATION_ID,
+        request_id=UUID(int=17),
+        idempotency_key="fedcba9876543210",
+        body=CreateMessageRequest(content="Compare the policy.", force_mode="agentic"),
+    )
+    await asyncio.sleep(0)
+    agentic._execute_agentic.assert_awaited_once()  # type: ignore[attr-defined]
+
+
+async def test_memory_lifecycle_is_isolated_from_answer_failures() -> None:
+    class Memory:
+        def __init__(self, *, fail: bool = False) -> None:
+            self.fail = fail
+            self.maintained = False
+
+        async def remember_explicit(self, **kwargs: Any) -> bool:
+            del kwargs
+            return True
+
+        async def prompt_context(self, **kwargs: Any) -> str:
+            del kwargs
+            if self.fail:
+                raise RuntimeError("memory offline")
+            return "<untrusted_memory>preference</untrusted_memory>"
+
+        async def maintain_conversation(self, **kwargs: Any) -> None:
+            del kwargs
+            self.maintained = True
+
+    instance = service(Admin(), retrieval_response(), Generation())
+    memory = Memory()
+    instance.memory = memory  # type: ignore[assignment]
+    context = await instance._prepare_memory(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        conversation_id=CONVERSATION_ID,
+        source_message_id=MESSAGE_ID,
+        message="Remember that I prefer concise answers.",
+    )
+    await instance._maintain_memory(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        conversation_id=CONVERSATION_ID,
+    )
+    assert "untrusted_memory" in context
+    assert memory.maintained is True
+
+    instance.memory = Memory(fail=True)  # type: ignore[assignment]
+    assert (
+        await instance._prepare_memory(
+            workspace_id=WORKSPACE_ID,
+            actor_id=USER_ID,
+            conversation_id=CONVERSATION_ID,
+            source_message_id=MESSAGE_ID,
+            message="Question",
+        )
+        == ""
+    )
+
+    sleeping = asyncio.create_task(asyncio.sleep(60))
+    instance._tasks[RUN_ID] = sleeping
+    await instance.aclose()
+    assert sleeping.cancelled()
+
+
+async def test_resume_rejects_unconfigured_and_terminal_simple_runs() -> None:
+    unconfigured = service(Admin(), retrieval_response(), Generation())
+    with pytest.raises(ApplicationError) as unavailable:
+        await unconfigured.resume(
+            workspace_id=WORKSPACE_ID,
+            actor_id=USER_ID,
+            run_id=RUN_ID,
+        )
+    assert unavailable.value.code == "AGENTIC_MODE_NOT_CONFIGURED"
+
+    class RunAdmin(Admin):
+        async def rpc(self, name: str, payload: dict[str, Any]) -> Any:
+            del payload
+            assert name == "get_rag_run"
+            return {
+                "id": str(RUN_ID),
+                "conversation_id": str(CONVERSATION_ID),
+                "status": "completed",
+                "mode": "simple",
+                "current_node": "complete",
+                "step_count": 3,
+                "confidence": 1,
+                "answer_status": "grounded",
+                "output_message_id": str(MESSAGE_ID),
+                "error": None,
+                "created_at": NOW.isoformat(),
+                "updated_at": NOW.isoformat(),
+                "completed_at": NOW.isoformat(),
+            }
+
+    terminal = service(RunAdmin(), retrieval_response(), Generation())
+    terminal.orchestrator = object()  # type: ignore[assignment]
+    with pytest.raises(ApplicationError) as not_resumable:
+        await terminal.resume(
+            workspace_id=WORKSPACE_ID,
+            actor_id=USER_ID,
+            run_id=RUN_ID,
+        )
+    assert not_resumable.value.code == "AGENT_RUN_NOT_RESUMABLE"

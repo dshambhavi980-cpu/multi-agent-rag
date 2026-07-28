@@ -25,10 +25,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
       return;
     }
 
-    let active = true;
+    const lifecycle = new AbortController();
+    const isCancelled = () => lifecycle.signal.aborted;
     const restoreOrCreateGuestSession = async () => {
       const { data, error } = await client.auth.getSession();
-      if (!active) {
+      if (isCancelled()) {
         return;
       }
       if (error) {
@@ -44,7 +45,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
       const { data: guestData, error: guestError } =
         await client.auth.signInAnonymously();
-      if (!active) {
+      if (isCancelled()) {
         return;
       }
       if (guestError || !guestData.session) {
@@ -65,7 +66,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
 
     return () => {
-      active = false;
+      lifecycle.abort();
       subscription.unsubscribe();
     };
   }, []);

@@ -13,6 +13,7 @@ from app.api.errors import install_error_handlers
 from app.api.middleware import RequestContextMiddleware
 from app.api.routes.auth import router as auth_router
 from app.api.routes.documents import router as documents_router
+from app.api.routes.memory import router as memory_router
 from app.api.routes.rag import router as rag_router
 from app.api.routes.retrieval import router as retrieval_router
 from app.api.routes.system import router as system_router
@@ -33,6 +34,7 @@ from app.infrastructure.supabase.auth import SupabaseJwtVerifier, UnavailableJwt
 from app.infrastructure.supabase.data import SupabaseDataClient, UnavailableDataClient
 from app.infrastructure.supabase.storage import SupabaseStorageClient, UnavailableStorageClient
 from app.services.ingestion_worker import IngestionWorker, WorkerConfig
+from app.services.memory import MemoryConfig, MemoryService
 from app.services.rag import GroundedRagService, RagConfig
 from app.services.readiness import ReadinessRegistry, static_check
 from app.services.retrieval import HybridRetrievalService, RetrievalConfig
@@ -96,6 +98,7 @@ def _build_rag_service(
     admin: Any,
     retrieval: HybridRetrievalService,
     generation: Any,
+    memory: MemoryService,
 ) -> GroundedRagService:
     orchestrator = AgentOrchestrator(
         admin=admin,
@@ -117,6 +120,7 @@ def _build_rag_service(
         retrieval=retrieval,
         generation=generation,
         orchestrator=orchestrator,
+        memory=memory,
         config=RagConfig(
             evidence_limit=settings.rag_evidence_limit,
             candidate_count=settings.rag_candidate_count,
@@ -134,6 +138,7 @@ def _install_routes(application: FastAPI) -> None:
     application.include_router(documents_router)
     application.include_router(retrieval_router)
     application.include_router(rag_router)
+    application.include_router(memory_router)
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
@@ -193,11 +198,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
             application.state.supabase_admin,
             application.state.embeddings,
         )
+        application.state.memory = MemoryService(
+            admin=application.state.supabase_admin,
+            config=MemoryConfig(
+                prompt_char_budget=resolved_settings.memory_prompt_char_budget,
+                summary_char_budget=resolved_settings.memory_summary_char_budget,
+                memory_char_budget=resolved_settings.memory_item_char_budget,
+                recent_message_limit=resolved_settings.memory_recent_message_limit,
+                retrieval_limit=resolved_settings.memory_retrieval_limit,
+                cleanup_interval_seconds=resolved_settings.memory_cleanup_interval_seconds,
+            ),
+        )
         application.state.rag = _build_rag_service(
             resolved_settings,
             application.state.supabase_admin,
             application.state.retrieval,
             application.state.generation,
+            application.state.memory,
         )
         if (
             resolved_settings.ingestion_worker_enabled
