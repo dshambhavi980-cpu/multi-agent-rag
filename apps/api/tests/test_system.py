@@ -14,6 +14,22 @@ async def test_health_reports_liveness_and_request_id(client: AsyncClient) -> No
     UUID(response.headers["X-Request-ID"])
 
 
+async def test_cors_accepts_configured_origin_without_trailing_slash(
+    client: AsyncClient,
+) -> None:
+    response = await client.options(
+        "/rag/ask",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "authorization,content-type,x-workspace-id",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:5173"
+
+
 async def test_valid_request_id_is_preserved(client: AsyncClient) -> None:
     request_id = "e7e1fe38-6cbc-4cc1-a7b6-5c30158f1f54"
 

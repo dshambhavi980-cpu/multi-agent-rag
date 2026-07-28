@@ -17,7 +17,7 @@ services:
       - key: APP_DOCS_ENABLED
         value: "true"
       - key: APP_CORS_ORIGINS
-        value: '["https://docpilot-rag-assistant.vercel.app"]'
+        value: '["https://web-ten-gold-62.vercel.app","https://docpilot-docpilot1.vercel.app","https://docpilot-dshambhavi980-cpu-docpilot1.vercel.app","https://docpilot-rag-assistant.vercel.app"]'
       - key: APP_INGESTION_WORKER_ENABLED
         value: "true"
       - key: APP_SUPABASE_URL
