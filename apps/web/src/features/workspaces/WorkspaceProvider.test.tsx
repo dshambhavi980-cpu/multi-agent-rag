@@ -69,6 +69,9 @@ function Consumer() {
 }
 
 beforeEach(() => {
+  vi.spyOn(globalThis.crypto, "randomUUID").mockReturnValue(
+    "00000000-0000-4000-8000-000000000002",
+  );
   window.localStorage.clear();
   mocks.queryError = null;
   mocks.insertError = null;
@@ -76,16 +79,14 @@ beforeEach(() => {
   mocks.insert.mockReset();
   mocks.from.mockImplementation(() => ({
     select: () => ({
-      order: () => Promise.resolve({
-        data: mocks.queryError ? null : mocks.rows,
-        error: mocks.queryError,
-      }),
-    }),
-    insert: (payload: unknown) => {
-      mocks.insert(payload);
-      return {
-        select: () => ({
-          single: () => Promise.resolve({
+      order: () =>
+        Promise.resolve({
+          data: mocks.queryError ? null : mocks.rows,
+          error: mocks.queryError,
+        }),
+      eq: () => ({
+        single: () =>
+          Promise.resolve({
             data: {
               id: "workspace-2",
               name: "New workspace",
@@ -95,8 +96,11 @@ beforeEach(() => {
             },
             error: mocks.insertError,
           }),
-        }),
-      };
+      }),
+    }),
+    insert: (payload: unknown) => {
+      mocks.insert(payload);
+      return Promise.resolve({ error: mocks.insertError });
     },
   }));
 });
@@ -116,6 +120,7 @@ test("loads, selects, and creates workspaces", async () => {
   await user.click(screen.getByRole("button", { name: "Create" }));
   await waitFor(() => {
     expect(mocks.insert).toHaveBeenCalledWith({
+      id: "00000000-0000-4000-8000-000000000002",
       name: "New workspace",
       created_by: "user-1",
     });

@@ -44,10 +44,17 @@ export function WorkspaceProvider({ children }: PropsWithChildren) {
       if (!supabase || !user) {
         throw new Error("A signed-in user is required.");
       }
+      const workspaceId = crypto.randomUUID();
+      const { error: insertError } = await supabase
+        .from("workspaces")
+        .insert({ id: workspaceId, name: name.trim(), created_by: user.id });
+      if (insertError) {
+        throw insertError;
+      }
       const { data, error } = await supabase
         .from("workspaces")
-        .insert({ name: name.trim(), created_by: user.id })
         .select("*")
+        .eq("id", workspaceId)
         .single();
       if (error) {
         throw error;
