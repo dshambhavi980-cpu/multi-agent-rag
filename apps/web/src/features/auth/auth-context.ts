@@ -11,8 +11,6 @@ export type AuthContextValue = {
   session: Session | null;
   user: User | null;
   status: AuthStatus;
-  signInWithEmail: (email: string) => Promise<void>;
-  signOut: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextValue | null>(null);

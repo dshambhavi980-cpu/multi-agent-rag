@@ -20,12 +20,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
   );
 
   useEffect(() => {
-    if (!supabase) {
+    const client = supabase;
+    if (!client) {
       return;
     }
 
     let active = true;
-    void supabase.auth.getSession().then(({ data, error }) => {
+    const restoreOrCreateGuestSession = async () => {
+      const { data, error } = await client.auth.getSession();
       if (!active) {
         return;
       }
@@ -34,13 +36,30 @@ export function AuthProvider({ children }: PropsWithChildren) {
         setStatus("anonymous");
         return;
       }
-      setSession(data.session);
-      setStatus(data.session ? "authenticated" : "anonymous");
-    });
+      if (data.session) {
+        setSession(data.session);
+        setStatus("authenticated");
+        return;
+      }
+
+      const { data: guestData, error: guestError } =
+        await client.auth.signInAnonymously();
+      if (!active) {
+        return;
+      }
+      if (guestError || !guestData.session) {
+        setSession(null);
+        setStatus("anonymous");
+        return;
+      }
+      setSession(guestData.session);
+      setStatus("authenticated");
+    };
+    void restoreOrCreateGuestSession();
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = client.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
       setStatus(nextSession ? "authenticated" : "anonymous");
     });
@@ -56,30 +75,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
       session,
       user: session?.user ?? null,
       status,
-      signInWithEmail: async (email: string) => {
-        if (!supabase) {
-          throw new Error("Supabase is not configured.");
-        }
-        const { error } = await supabase.auth.signInWithOtp({
-          email,
-          options: {
-            emailRedirectTo: window.location.origin,
-            shouldCreateUser: true,
-          },
-        });
-        if (error) {
-          throw error;
-        }
-      },
-      signOut: async () => {
-        if (!supabase) {
-          return;
-        }
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-          throw error;
-        }
-      },
     }),
     [session, status],
   );

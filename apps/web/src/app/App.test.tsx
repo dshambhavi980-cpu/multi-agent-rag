@@ -5,17 +5,14 @@ import { renderWithProviders } from "../test/render";
 import { App } from "./App";
 
 const appMocks = vi.hoisted(() => ({
-  signOut: vi.fn(),
   selectWorkspace: vi.fn(),
 }));
 
 vi.mock("../features/auth/auth-context", () => ({
   useAuth: () => ({
     session: null,
-    user: { email: "pat@example.test" },
+    user: { id: "guest-1", is_anonymous: true },
     status: "authenticated",
-    signInWithEmail: vi.fn(),
-    signOut: appMocks.signOut,
   }),
 }));
 
@@ -54,7 +51,6 @@ vi.mock("../features/workspaces/workspace-context", () => ({
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
-  appMocks.signOut.mockReset();
   appMocks.selectWorkspace.mockReset();
 });
 
@@ -88,7 +84,7 @@ test("opens and closes mobile navigation", async () => {
   );
 });
 
-test("selects a workspace, signs out, and handles unknown routes", async () => {
+test("selects a workspace and handles unknown routes in guest mode", async () => {
   const user = userEvent.setup();
   window.history.replaceState(null, "", "/unknown");
   renderWithProviders(<App />);
@@ -98,8 +94,7 @@ test("selects a workspace, signs out, and handles unknown routes", async () => {
     screen.getByRole("combobox", { name: "Active workspace" }),
     "workspace-2",
   );
-  await user.click(screen.getByRole("button", { name: "Sign out" }));
 
   expect(appMocks.selectWorkspace).toHaveBeenCalledWith("workspace-2");
-  expect(appMocks.signOut).toHaveBeenCalled();
+  expect(screen.getByLabelText("Guest session")).toBeInTheDocument();
 });

@@ -5,7 +5,6 @@ import {
   Database,
   FileStack,
   Gauge,
-  LogOut,
   Menu,
   MessageSquareText,
   Settings,
@@ -15,7 +14,6 @@ import {
 import { useEffect, useState } from "react";
 
 import { AuthGate } from "../features/auth/AuthGate";
-import { useAuth } from "../features/auth/auth-context";
 import { SystemOverview } from "../features/system/SystemOverview";
 import { DocumentsPage } from "../features/documents/DocumentsPage";
 import { WorkspaceGate } from "../features/workspaces/WorkspaceGate";
@@ -51,13 +49,7 @@ function Placeholder({ title }: { title: string }) {
   );
 }
 
-function initials(email: string | undefined): string {
-  const localPart = email?.split("@")[0] ?? "U";
-  return localPart.slice(0, 2).toUpperCase();
-}
-
 function AuthenticatedApp() {
-  const { signOut, user } = useAuth();
   const { activeWorkspace, selectWorkspace, workspaces } = useWorkspace();
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [pathname, setPathname] = useState(window.location.pathname);
@@ -172,20 +164,11 @@ function AuthenticatedApp() {
           </label>
           <div
             className="user-avatar"
-            aria-label={`Signed in as ${user?.email ?? "user"}`}
-            title={user?.email}
+            aria-label="Guest session"
+            title="Guest session"
           >
-            {initials(user?.email)}
+            G
           </div>
-          <button
-            className="icon-button"
-            type="button"
-            aria-label="Sign out"
-            title="Sign out"
-            onClick={() => void signOut()}
-          >
-            <LogOut size={18} aria-hidden="true" />
-          </button>
         </header>
 
         <main className="main-content">{routeContent}</main>

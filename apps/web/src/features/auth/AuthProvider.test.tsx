@@ -1,6 +1,5 @@
 import type { Session } from "@supabase/supabase-js";
 import { act, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 
 import { useAuth } from "./auth-context";
 import { AuthProvider } from "./AuthProvider";
@@ -8,8 +7,7 @@ import { AuthProvider } from "./AuthProvider";
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(),
   onAuthStateChange: vi.fn(),
-  signInWithOtp: vi.fn(),
-  signOut: vi.fn(),
+  signInAnonymously: vi.fn(),
   unsubscribe: vi.fn(),
   authChange: null as ((event: string, session: Session | null) => void) | null,
 }));
@@ -19,8 +17,7 @@ vi.mock("../../lib/supabase", () => ({
     auth: {
       getSession: mocks.getSession,
       onAuthStateChange: mocks.onAuthStateChange,
-      signInWithOtp: mocks.signInWithOtp,
-      signOut: mocks.signOut,
+      signInAnonymously: mocks.signInAnonymously,
     },
   },
 }));
@@ -42,12 +39,6 @@ function Consumer() {
     <>
       <p>{auth.status}</p>
       <p>{auth.user?.email ?? "no user"}</p>
-      <button type="button" onClick={() => void auth.signInWithEmail("pat@example.test")}>
-        Sign in
-      </button>
-      <button type="button" onClick={() => void auth.signOut()}>
-        Sign out
-      </button>
     </>
   );
 }
@@ -55,8 +46,7 @@ function Consumer() {
 beforeEach(() => {
   mocks.getSession.mockReset();
   mocks.onAuthStateChange.mockReset();
-  mocks.signInWithOtp.mockReset();
-  mocks.signOut.mockReset();
+  mocks.signInAnonymously.mockReset();
   mocks.unsubscribe.mockReset();
   mocks.authChange = null;
   mocks.onAuthStateChange.mockImplementation(
@@ -65,12 +55,13 @@ beforeEach(() => {
       return { data: { subscription: { unsubscribe: mocks.unsubscribe } } };
     },
   );
-  mocks.signInWithOtp.mockResolvedValue({ error: null });
-  mocks.signOut.mockResolvedValue({ error: null });
+  mocks.signInAnonymously.mockResolvedValue({
+    data: { session },
+    error: null,
+  });
 });
 
-test("restores a session and manages passwordless auth", async () => {
-  const user = userEvent.setup();
+test("restores an existing session", async () => {
   mocks.getSession.mockResolvedValue({ data: { session }, error: null });
   const view = render(
     <AuthProvider>
@@ -82,18 +73,7 @@ test("restores a session and manages passwordless auth", async () => {
     expect(screen.getByText("authenticated")).toBeInTheDocument();
   });
   expect(screen.getByText("pat@example.test")).toBeInTheDocument();
-
-  await user.click(screen.getByRole("button", { name: "Sign in" }));
-  expect(mocks.signInWithOtp).toHaveBeenCalledWith({
-    email: "pat@example.test",
-    options: {
-      emailRedirectTo: "http://localhost:3000",
-      shouldCreateUser: true,
-    },
-  });
-
-  await user.click(screen.getByRole("button", { name: "Sign out" }));
-  expect(mocks.signOut).toHaveBeenCalled();
+  expect(mocks.signInAnonymously).not.toHaveBeenCalled();
 
   act(() => {
     mocks.authChange?.("SIGNED_OUT", null);
@@ -104,7 +84,22 @@ test("restores a session and manages passwordless auth", async () => {
   expect(mocks.unsubscribe).toHaveBeenCalled();
 });
 
-test("falls back to anonymous when session restoration fails", async () => {
+test("creates a guest session when none exists", async () => {
+  mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });
+
+  render(
+    <AuthProvider>
+      <Consumer />
+    </AuthProvider>,
+  );
+
+  await waitFor(() => {
+    expect(screen.getByText("authenticated")).toBeInTheDocument();
+  });
+  expect(mocks.signInAnonymously).toHaveBeenCalledOnce();
+});
+
+test("reports guest access as unavailable when restoration fails", async () => {
   mocks.getSession.mockResolvedValue({
     data: { session: null },
     error: new Error("storage failed"),
@@ -121,44 +116,20 @@ test("falls back to anonymous when session restoration fails", async () => {
   });
 });
 
-test("propagates provider errors from sign-in and sign-out", async () => {
-  mocks.getSession.mockResolvedValue({ data: { session }, error: null });
-  mocks.signInWithOtp.mockResolvedValue({ error: new Error("sign in failed") });
-  mocks.signOut.mockResolvedValue({ error: new Error("sign out failed") });
+test("reports guest access as unavailable when anonymous sign-in fails", async () => {
+  mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });
+  mocks.signInAnonymously.mockResolvedValue({
+    data: { session: null },
+    error: new Error("guest access disabled"),
+  });
 
-  function ErrorConsumer() {
-    const auth = useAuth();
-    return (
-      <>
-        <button
-          type="button"
-          onClick={() => {
-            void auth.signInWithEmail("pat@example.test").catch(() => undefined);
-          }}
-        >
-          Failing sign in
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            void auth.signOut().catch(() => undefined);
-          }}
-        >
-          Failing sign out
-        </button>
-      </>
-    );
-  }
-
-  const user = userEvent.setup();
   render(
     <AuthProvider>
-      <ErrorConsumer />
+      <Consumer />
     </AuthProvider>,
   );
-  await user.click(screen.getByRole("button", { name: "Failing sign in" }));
-  await user.click(screen.getByRole("button", { name: "Failing sign out" }));
 
-  expect(mocks.signInWithOtp).toHaveBeenCalled();
-  expect(mocks.signOut).toHaveBeenCalled();
+  await waitFor(() => {
+    expect(screen.getByText("anonymous")).toBeInTheDocument();
+  });
 });

@@ -1,5 +1,4 @@
 import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 
 import type { AuthContextValue } from "./auth-context";
 import { AuthGate } from "./AuthGate";
@@ -19,8 +18,6 @@ function authValue(
     session: null,
     user: null,
     status: "anonymous",
-    signInWithEmail: vi.fn(),
-    signOut: vi.fn(),
     ...overrides,
   };
 }
@@ -32,7 +29,7 @@ test("shows session restoration and configuration states", () => {
       <p>Private content</p>
     </AuthGate>,
   );
-  expect(screen.getByText("Restoring your secure session")).toBeInTheDocument();
+  expect(screen.getByText("Preparing your guest workspace")).toBeInTheDocument();
 
   state.auth = authValue({ status: "unconfigured" });
   view.rerender(
@@ -57,40 +54,16 @@ test("renders protected content for an authenticated user", () => {
   expect(screen.getByText("Private content")).toBeInTheDocument();
 });
 
-test("sends a passwordless sign-in link", async () => {
-  const user = userEvent.setup();
-  const signInWithEmail = vi.fn().mockResolvedValue(undefined);
-  state.auth = authValue({ signInWithEmail });
+test("shows a guest access error without a sign-in form", () => {
+  state.auth = authValue({ status: "anonymous" });
   render(
     <AuthGate>
       <p>Private content</p>
     </AuthGate>,
   );
 
-  await user.type(screen.getByLabelText("Email address"), "pat@example.test");
-  await user.click(screen.getByRole("button", { name: "Send sign-in link" }));
-
-  expect(signInWithEmail).toHaveBeenCalledWith("pat@example.test");
   expect(
-    screen.getByText("Check your email for a secure sign-in link."),
+    screen.getByRole("heading", { name: "Guest access is unavailable" }),
   ).toBeInTheDocument();
-});
-
-test("reports a passwordless sign-in failure", async () => {
-  const user = userEvent.setup();
-  state.auth = authValue({
-    signInWithEmail: vi.fn().mockRejectedValue(new Error("provider failed")),
-  });
-  render(
-    <AuthGate>
-      <p>Private content</p>
-    </AuthGate>,
-  );
-
-  await user.type(screen.getByLabelText("Email address"), "pat@example.test");
-  await user.click(screen.getByRole("button", { name: "Send sign-in link" }));
-
-  expect(screen.getByRole("alert")).toHaveTextContent(
-    "The sign-in link could not be sent.",
-  );
+  expect(screen.queryByLabelText("Email address")).not.toBeInTheDocument();
 });

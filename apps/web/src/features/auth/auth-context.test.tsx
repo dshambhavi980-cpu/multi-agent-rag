@@ -11,8 +11,6 @@ test("provides authentication state", () => {
     session: null,
     user: null,
     status: "anonymous",
-    signInWithEmail: vi.fn(),
-    signOut: vi.fn(),
   };
 
   render(

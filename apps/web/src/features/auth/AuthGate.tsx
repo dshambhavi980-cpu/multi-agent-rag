@@ -1,14 +1,10 @@
-import { KeyRound, LoaderCircle, Mail, Send } from "lucide-react";
-import { type PropsWithChildren, type SyntheticEvent, useState } from "react";
+import { KeyRound, LoaderCircle, TriangleAlert } from "lucide-react";
+import type { PropsWithChildren } from "react";
 
 import { useAuth } from "./auth-context";
 
 export function AuthGate({ children }: PropsWithChildren) {
-  const { status, signInWithEmail } = useAuth();
-  const [email, setEmail] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { status } = useAuth();
 
   if (status === "authenticated") {
     return children;
@@ -18,7 +14,7 @@ export function AuthGate({ children }: PropsWithChildren) {
     return (
       <main className="auth-page">
         <LoaderCircle className="spin" aria-hidden="true" />
-        <p>Restoring your secure session</p>
+        <p>Preparing your guest workspace</p>
       </main>
     );
   }
@@ -35,63 +31,12 @@ export function AuthGate({ children }: PropsWithChildren) {
     );
   }
 
-  const submit = async (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setSubmitting(true);
-    setError(null);
-    setMessage(null);
-    try {
-      await signInWithEmail(email.trim());
-      setMessage("Check your email for a secure sign-in link.");
-    } catch {
-      setError("The sign-in link could not be sent. Please try again.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <main className="auth-page">
-      <section className="auth-panel" aria-labelledby="sign-in-title">
-        <div className="auth-brand">
-          <span className="brand-mark" aria-hidden="true">
-            D
-          </span>
-          <span>DocPilot</span>
-        </div>
-        <h1 id="sign-in-title">Sign in to your workspace</h1>
-        <p>Use your work email. We will send a passwordless sign-in link.</p>
-        <form onSubmit={(event) => void submit(event)}>
-          <label htmlFor="email">Email address</label>
-          <div className="input-with-icon">
-            <Mail aria-hidden="true" size={17} />
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-              }}
-              placeholder="you@company.com"
-            />
-          </div>
-          <button className="primary-button auth-submit" type="submit" disabled={submitting}>
-            {submitting ? (
-              <LoaderCircle className="spin" aria-hidden="true" size={17} />
-            ) : (
-              <Send aria-hidden="true" size={17} />
-            )}
-            Send sign-in link
-          </button>
-        </form>
-        {message ? <p className="form-message form-success">{message}</p> : null}
-        {error ? (
-          <p className="form-message form-error" role="alert">
-            {error}
-          </p>
-        ) : null}
+      <section className="auth-panel" aria-labelledby="guest-error-title">
+        <TriangleAlert aria-hidden="true" size={28} />
+        <h1 id="guest-error-title">Guest access is unavailable</h1>
+        <p>Anonymous access must be enabled in the Supabase Auth settings.</p>
       </section>
     </main>
   );
