@@ -94,7 +94,7 @@ class Run(BaseModel):
     id: UUID
     conversation_id: UUID
     status: RunStatus
-    mode: Literal["simple"]
+    mode: Literal["simple", "agentic"]
     current_node: str | None = None
     step_count: int = Field(ge=0, le=8)
     confidence: float | None = Field(default=None, ge=0, le=1)

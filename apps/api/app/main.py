@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
+from app.agents.orchestrator import AgentConfig, AgentOrchestrator
+from app.agents.tools import ToolRegistry
 from app.api.errors import install_error_handlers
 from app.api.middleware import RequestContextMiddleware
 from app.api.routes.auth import router as auth_router
@@ -95,10 +97,26 @@ def _build_rag_service(
     retrieval: HybridRetrievalService,
     generation: Any,
 ) -> GroundedRagService:
+    orchestrator = AgentOrchestrator(
+        admin=admin,
+        tools=ToolRegistry(admin=admin, retrieval=retrieval),
+        generation=generation,
+        config=AgentConfig(
+            max_steps=settings.agent_max_steps,
+            max_subtasks=settings.agent_max_subtasks,
+            max_concurrent_retrievals=settings.agent_max_concurrent_retrievals,
+            timeout_seconds=settings.agent_timeout_seconds,
+            evidence_limit=settings.rag_evidence_limit,
+            candidate_count=settings.rag_candidate_count,
+            context_char_budget=settings.agent_context_char_budget,
+            output_char_budget=settings.agent_output_char_budget,
+        ),
+    )
     return GroundedRagService(
         admin=admin,
         retrieval=retrieval,
         generation=generation,
+        orchestrator=orchestrator,
         config=RagConfig(
             evidence_limit=settings.rag_evidence_limit,
             candidate_count=settings.rag_candidate_count,

@@ -4,10 +4,13 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from time import perf_counter
+from time import perf_counter, time
 from typing import Any, Protocol, cast
 from uuid import UUID, uuid4
 
+from app.agents.models import AgentState
+from app.agents.orchestrator import AgentOrchestrator
+from app.agents.router import route_request
 from app.api.errors import ApplicationError
 from app.core.logging import get_logger
 from app.infrastructure.supabase.admin import SupabaseAdminClient
@@ -24,6 +27,7 @@ from app.models.retrieval import RetrievalFilters, RetrievalRequest, RetrievalRe
 from app.services.retrieval import HybridRetrievalService
 
 PROMPT_VERSION = "rag-system-v1+answer-v1"
+AGENT_PROMPT_VERSION = "agent-system-v1"
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
 SYSTEM_PROMPT = (PROMPT_DIR / "rag_system_v1.txt").read_text(encoding="utf-8").strip()
 ANSWER_PROMPT = (PROMPT_DIR / "rag_answer_v1.txt").read_text(encoding="utf-8").strip()
@@ -132,11 +136,13 @@ class GroundedRagService:
         retrieval: HybridRetrievalService,
         generation: StreamingGenerationClient,
         config: RagConfig,
+        orchestrator: AgentOrchestrator | None = None,
     ) -> None:
         self.admin = admin
         self.retrieval = retrieval
         self.generation = generation
         self.config = config
+        self.orchestrator = orchestrator
         self._tasks: dict[UUID, asyncio.Task[None]] = {}
 
     async def aclose(self) -> None:
@@ -203,16 +209,10 @@ class GroundedRagService:
         idempotency_key: str,
         body: CreateMessageRequest,
     ) -> RunAccepted:
-        if body.force_mode == "agentic":
-            raise ApplicationError(
-                "AGENTIC_MODE_NOT_AVAILABLE",
-                "Agentic mode unavailable",
-                "Agentic orchestration is introduced in Phase 7.",
-                status=400,
-            )
+        decision = route_request(body)
         accepted = RunAccepted.model_validate(
             await self.admin.rpc(
-                "start_simple_rag_run",
+                "start_rag_run",
                 {
                     "p_workspace_id": str(workspace_id),
                     "p_actor_id": str(actor_id),
@@ -226,20 +226,30 @@ class GroundedRagService:
                     "p_request_key": idempotency_key,
                     "p_prompt_version": PROMPT_VERSION,
                     "p_model": self.generation.model,
+                    "p_mode": decision.mode,
                 },
             )
         )
         if accepted.status == "accepted" and accepted.run_id not in self._tasks:
-            task = asyncio.create_task(
-                self._execute(
+            operation = (
+                self._execute_agentic(
                     run_id=accepted.run_id,
                     workspace_id=workspace_id,
                     actor_id=actor_id,
                     request_id=request_id,
                     body=body,
-                ),
-                name=f"rag-run-{accepted.run_id}",
+                    route_reason=decision.reason,
+                )
+                if decision.mode == "agentic"
+                else self._execute(
+                    run_id=accepted.run_id,
+                    workspace_id=workspace_id,
+                    actor_id=actor_id,
+                    request_id=request_id,
+                    body=body,
+                )
             )
+            task = asyncio.create_task(operation, name=f"rag-run-{accepted.run_id}")
             self._tasks[accepted.run_id] = task
             task.add_done_callback(lambda _: self._tasks.pop(accepted.run_id, None))
         return accepted
@@ -292,6 +302,186 @@ class GroundedRagService:
                 },
             ),
         )
+
+    async def resume(self, *, workspace_id: UUID, actor_id: UUID, run_id: UUID) -> Run:
+        if self.orchestrator is None:
+            raise ApplicationError(
+                "AGENTIC_MODE_NOT_CONFIGURED",
+                "Agentic mode unavailable",
+                "The agent orchestrator is not configured.",
+                status=503,
+            )
+        run = await self.get_run(workspace_id=workspace_id, actor_id=actor_id, run_id=run_id)
+        if run.mode != "agentic" or run.status not in {
+            "accepted",
+            "running",
+            "failed",
+            "timed_out",
+        }:
+            raise ApplicationError(
+                "AGENT_RUN_NOT_RESUMABLE",
+                "Agent run is not resumable",
+                "Only incomplete agentic runs with a durable checkpoint can resume.",
+                status=409,
+            )
+        checkpoint = await self.orchestrator.load_checkpoint(run_id, workspace_id)
+        if checkpoint is None:
+            raise ApplicationError(
+                "AGENT_CHECKPOINT_NOT_FOUND",
+                "Agent checkpoint not found",
+                "No durable workflow checkpoint exists for this run.",
+                status=404,
+            )
+        checkpoint["started_at"] = time()
+        await self.admin.rpc(
+            "resume_agent_run",
+            {
+                "p_workspace_id": str(workspace_id),
+                "p_actor_id": str(actor_id),
+                "p_run_id": str(run_id),
+            },
+        )
+        if run_id not in self._tasks:
+            task = asyncio.create_task(
+                self._execute_agentic_state(checkpoint),
+                name=f"agent-resume-{run_id}",
+            )
+            self._tasks[run_id] = task
+            task.add_done_callback(lambda _: self._tasks.pop(run_id, None))
+        return await self.get_run(workspace_id=workspace_id, actor_id=actor_id, run_id=run_id)
+
+    async def _execute_agentic(  # noqa: PLR0913
+        self,
+        *,
+        run_id: UUID,
+        workspace_id: UUID,
+        actor_id: UUID,
+        request_id: UUID,
+        body: CreateMessageRequest,
+        route_reason: str,
+    ) -> None:
+        state: AgentState = {
+            "run_id": str(run_id),
+            "workspace_id": str(workspace_id),
+            "actor_id": str(actor_id),
+            "request_id": str(request_id),
+            "question": body.content,
+            "document_ids": (
+                [str(document_id) for document_id in body.document_ids]
+                if body.document_ids
+                else None
+            ),
+            "step_count": 0,
+            "started_at": time(),
+            "resume_node": "supervisor",
+            "route_reason": route_reason,
+        }
+        await self._execute_agentic_state(state)
+
+    async def _execute_agentic_state(self, state: AgentState) -> None:
+        run_id = UUID(state["run_id"])
+        workspace_id = UUID(state["workspace_id"])
+        started = perf_counter()
+        try:
+            if self.orchestrator is None:
+                raise ApplicationError(
+                    "AGENTIC_MODE_NOT_CONFIGURED",
+                    "Agentic mode unavailable",
+                    "The agent orchestrator is not configured.",
+                    status=503,
+                )
+            await self._transition(run_id, workspace_id, "running", state["resume_node"])
+            await self._event(
+                run_id,
+                workspace_id,
+                "run.status_changed",
+                {"previous_status": "accepted", "status": "running"},
+            )
+            result = await self.orchestrator.run(state)
+            if result.retrieval_trace_ids:
+                await self.admin.rpc(
+                    "store_rag_evidence",
+                    {
+                        "p_run_id": str(run_id),
+                        "p_workspace_id": str(workspace_id),
+                        "p_retrieval_trace_id": result.retrieval_trace_ids[0],
+                        "p_evidence": result.evidence,
+                    },
+                )
+            citations = [
+                Citation.model_validate(item).model_dump(mode="json")
+                for item in result.evidence
+                if item["citation_id"] in result.citation_ids
+            ]
+            if citations:
+                await self._event(
+                    run_id, workspace_id, "citations.available", {"citations": citations}
+                )
+            await self._event(run_id, workspace_id, "answer.delta", {"delta": result.content})
+            timings = {"total_ms": round((perf_counter() - started) * 1000, 3)}
+            completed = cast(
+                dict[str, Any],
+                await self.admin.rpc(
+                    "complete_rag_run",
+                    {
+                        "p_run_id": str(run_id),
+                        "p_workspace_id": str(workspace_id),
+                        "p_content": result.content,
+                        "p_answer_status": result.answer_status,
+                        "p_confidence": result.confidence,
+                        "p_citations": citations,
+                        "p_model": self.generation.model,
+                        "p_prompt_version": AGENT_PROMPT_VERSION,
+                        "p_timings": timings,
+                    },
+                ),
+            )
+            if completed.get("cancelled"):
+                return
+            await self._event(
+                run_id,
+                workspace_id,
+                "run.completed",
+                {
+                    "message_id": completed["message_id"],
+                    "answer_status": result.answer_status,
+                    "confidence": result.confidence,
+                    "duration_ms": round(timings["total_ms"]),
+                },
+            )
+        except asyncio.CancelledError:
+            await self._transition(run_id, workspace_id, "cancelled", "cancelled")
+            await self._event(
+                run_id,
+                workspace_id,
+                "run.status_changed",
+                {"previous_status": "cancelling", "status": "cancelled"},
+            )
+            raise
+        except ApplicationError as exc:
+            status = "timed_out" if exc.code == "AGENT_BUDGET_TIMEOUT" else "failed"
+            await self._fail(
+                run_id,
+                workspace_id,
+                code=exc.code,
+                detail=exc.detail,
+                retryable=exc.retryable,
+                status=status,
+                accumulated="",
+                started=started,
+            )
+        except Exception:
+            get_logger().exception("agent_run_failed", run_id=str(run_id))
+            await self._fail(
+                run_id,
+                workspace_id,
+                code="AGENT_RUN_FAILED",
+                detail="The bounded agent workflow failed unexpectedly.",
+                retryable=True,
+                status="failed",
+                accumulated="",
+                started=started,
+            )
 
     async def _execute(
         self,

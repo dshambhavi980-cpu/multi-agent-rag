@@ -83,6 +83,15 @@ Phase 6 implements grounded, streaming RAG:
 - Safe insufficient-evidence, provider-failure, timeout, and cancellation states.
 - Workspace-authorized source links that redirect to the exact stored PDF page.
 
+Phase 7 implements bounded multi-agent orchestration:
+
+- Deterministic routing keeps ordinary questions on the low-latency simple RAG path.
+- Typed LangGraph supervisor, planner, retrieval, synthesis, writer, and reviewer nodes.
+- Concurrent retrieval through a deny-by-default, read-only tool registry.
+- Durable agent steps, sanitized tool calls, and resumable workflow checkpoints.
+- Strict step, recursion, concurrency, time, context, and output budgets.
+- Prompt-injection containment and citation review before answer publication.
+
 ## Quick start
 
 Requirements: Python 3.12+, Node.js 24+, and optionally Docker.
@@ -138,6 +147,7 @@ npm run check:web
 - [`docs/phase-4-acceptance.md`](docs/phase-4-acceptance.md)
 - [`docs/phase-5-acceptance.md`](docs/phase-5-acceptance.md)
 - [`docs/phase-6-acceptance.md`](docs/phase-6-acceptance.md)
+- [`docs/phase-7-acceptance.md`](docs/phase-7-acceptance.md)
 - [`docs/development.md`](docs/development.md)
 - [`contracts/openapi.yaml`](contracts/openapi.yaml)
 - [`contracts/events.asyncapi.yaml`](contracts/events.asyncapi.yaml)

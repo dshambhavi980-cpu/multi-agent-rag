@@ -204,6 +204,30 @@ async def stream_run_events(
 
 
 @router.post(
+    "/runs/{run_id}/resume",
+    operation_id="resumeRun",
+    response_model=OperationAccepted,
+    status_code=202,
+)
+async def resume_run(
+    run_id: UUID,
+    request: Request,
+    workspace_id: WorkspaceHeader,
+    idempotency_key: IdempotencyHeader,
+    auth: AuthDependency,
+) -> OperationAccepted:
+    del idempotency_key
+    await require_workspace_access(workspace_id, request, auth)
+    service = cast(GroundedRagService, request.app.state.rag)
+    run = await service.resume(
+        workspace_id=workspace_id,
+        actor_id=auth.user.id,
+        run_id=run_id,
+    )
+    return OperationAccepted(id=run_id, status=run.status)
+
+
+@router.post(
     "/runs/{run_id}/cancel",
     operation_id="cancelRun",
     response_model=OperationAccepted,

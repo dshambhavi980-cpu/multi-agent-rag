@@ -520,6 +520,31 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /v1/runs/{runId}/resume:
+    post:
+      tags: [Runs]
+      operationId: resumeRun
+      summary: Resume an incomplete agentic run from its durable checkpoint
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - $ref: "#/components/parameters/RunId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Checkpoint resume was accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OperationAccepted"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
   /v1/runs/{runId}/cancel:
     post:
       tags: [Runs]

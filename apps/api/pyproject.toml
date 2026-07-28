@@ -12,6 +12,7 @@ dependencies = [
   "beautifulsoup4==4.15.0",
   "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
+  "langgraph==1.2.9",
   "PyMuPDF==1.28.0",
   "PyJWT[crypto]>=2.10,<3",
   "pydantic-settings>=2.8,<3",

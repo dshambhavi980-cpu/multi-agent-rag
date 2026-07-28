@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: docpilot-api
+    runtime: python
+    plan: free
+    region: singapore
+    rootDir: apps/api
+    buildCommand: pip install .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: APP_ENVIRONMENT
+        value: production
+      - key: APP_LOG_LEVEL
+        value: INFO
+      - key: APP_DOCS_ENABLED
+        value: "true"
+      - key: APP_CORS_ORIGINS
+        value: '["https://docpilot-rag-assistant.vercel.app"]'
+      - key: APP_INGESTION_WORKER_ENABLED
+        value: "true"
+      - key: APP_SUPABASE_URL
+        sync: false
+      - key: APP_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: APP_SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false

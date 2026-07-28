@@ -119,6 +119,10 @@ class Rag:
         del kwargs
         return run("cancelling")
 
+    async def resume(self, **kwargs: Any) -> Run:
+        del kwargs
+        return run("running")
+
     async def events(self, **kwargs: Any) -> list[dict[str, Any]]:
         if kwargs["after_sequence"] > 0:
             return []
@@ -171,6 +175,7 @@ async def test_conversation_and_run_routes(client: AsyncClient) -> None:
     )
     snapshot = await client.get(f"/v1/runs/{RUN_ID}", headers=headers())
     cancelled = await client.post(f"/v1/runs/{RUN_ID}/cancel", headers=headers(idempotent=True))
+    resumed = await client.post(f"/v1/runs/{RUN_ID}/resume", headers=headers(idempotent=True))
 
     assert listed.json()["items"][0]["id"] == str(CONVERSATION_ID)
     assert detail.json()["messages"][0]["content"] == "Question"
@@ -179,6 +184,7 @@ async def test_conversation_and_run_routes(client: AsyncClient) -> None:
     assert cancelled.json() == OperationAccepted(id=RUN_ID, status="cancelling").model_dump(
         mode="json"
     )
+    assert resumed.json() == OperationAccepted(id=RUN_ID, status="running").model_dump(mode="json")
 
 
 async def test_sse_replays_durable_events_and_requires_idempotency(client: AsyncClient) -> None:
