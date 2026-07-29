@@ -11,6 +11,10 @@ EXPLICIT_MEMORY = re.compile(
     r"^\s*(?:please\s+)?remember(?:\s+that)?[\s,:-]+(.+?)\s*$",
     re.IGNORECASE | re.DOTALL,
 )
+EXPLICIT_PREFERENCE = re.compile(
+    r"^\s*(?:for\s+future\b|from\s+now\s+on\b|i\s+(?:would\s+)?prefer\b).+?\s*$",
+    re.IGNORECASE | re.DOTALL,
+)
 
 
 class MemoryAdmin(Protocol):
@@ -74,10 +78,11 @@ class MemoryService:
         source_message_id: UUID,
         message: str,
     ) -> bool:
-        match = EXPLICIT_MEMORY.fullmatch(message)
-        if match is None:
+        memory_match = EXPLICIT_MEMORY.fullmatch(message)
+        preference_match = EXPLICIT_PREFERENCE.fullmatch(message)
+        if memory_match is None and preference_match is None:
             return False
-        content = match.group(1).strip()
+        content = memory_match.group(1).strip() if memory_match is not None else message.strip()
         if not content or len(content) > 2000:
             return False
         await self.admin.rpc(

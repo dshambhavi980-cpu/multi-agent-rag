@@ -90,7 +90,7 @@ async def test_memory_service_lists_deletes_and_stores_only_explicit_requests() 
         actor_id=USER_ID,
         conversation_id=CONVERSATION_ID,
         source_message_id=MESSAGE_ID,
-        message="I prefer concise answers.",
+        message="The deployment completed successfully.",
     )
     stored = await service.remember_explicit(
         workspace_id=WORKSPACE_ID,
@@ -115,6 +115,31 @@ async def test_memory_service_lists_deletes_and_stores_only_explicit_requests() 
     store_call = next(payload for name, payload in admin.calls if name == "store_explicit_memory")
     assert store_call["p_content"] == "I prefer concise answers."
     assert store_call["p_visibility"] == "private"
+
+
+async def test_memory_service_accepts_explicit_preference_phrasing() -> None:
+    phrases = [
+        "For future summaries, prefer short bullet points and include launch dates.",
+        "From now on, use concise release notes.",
+        "I prefer answers with short bullet points.",
+    ]
+    for phrase in phrases:
+        admin = Admin()
+        service = MemoryService(admin=admin, config=MemoryConfig())
+
+        stored = await service.remember_explicit(
+            workspace_id=WORKSPACE_ID,
+            actor_id=USER_ID,
+            conversation_id=CONVERSATION_ID,
+            source_message_id=MESSAGE_ID,
+            message=phrase,
+        )
+
+        assert stored is True
+        store_call = next(
+            payload for name, payload in admin.calls if name == "store_explicit_memory"
+        )
+        assert store_call["p_content"] == phrase
 
 
 async def test_prompt_context_is_bounded_untrusted_and_failure_tolerant() -> None:
