@@ -6,6 +6,7 @@ from httpx import AsyncClient
 
 from app.models.auth import AuthenticatedUser, WorkspaceAccess
 from app.models.rag import (
+    AgentStep,
     Conversation,
     ConversationDetail,
     ConversationPage,
@@ -13,6 +14,11 @@ from app.models.rag import (
     OperationAccepted,
     Run,
     RunAccepted,
+    RunPage,
+    RunSummary,
+    RunTrace,
+    ToolCall,
+    WorkspaceUsage,
 )
 
 USER_ID = UUID("10000000-0000-4000-8000-000000000001")
@@ -115,6 +121,50 @@ class Rag:
         del kwargs
         return run()
 
+    async def list_runs(self, **kwargs: Any) -> RunPage:
+        del kwargs
+        return RunPage(items=[RunSummary(**run().model_dump(), question="Question")])
+
+    async def get_run_trace(self, **kwargs: Any) -> RunTrace:
+        del kwargs
+        return RunTrace(
+            run=RunSummary(**run().model_dump(), question="Question"),
+            steps=[
+                AgentStep(
+                    id=UUID(int=21),
+                    step_number=1,
+                    node="retrieve",
+                    status="succeeded",
+                    summary="Retrieved workspace evidence.",
+                    duration_ms=12,
+                    created_at=NOW,
+                )
+            ],
+            tool_calls=[
+                ToolCall(
+                    id=UUID(int=22),
+                    tool_name="workspace_search",
+                    permission="read",
+                    status="succeeded",
+                    output_summary={"results": 3},
+                    duration_ms=8,
+                    created_at=NOW,
+                )
+            ],
+        )
+
+    async def workspace_usage(self, **kwargs: Any) -> WorkspaceUsage:
+        del kwargs
+        return WorkspaceUsage(
+            documents=2,
+            document_bytes=2048,
+            ready_documents=1,
+            conversations=1,
+            runs=1,
+            approvals=0,
+            memories=3,
+        )
+
     async def cancel(self, **kwargs: Any) -> Run:
         del kwargs
         return run("cancelling")
@@ -174,6 +224,9 @@ async def test_conversation_and_run_routes(client: AsyncClient) -> None:
         json={"content": "Question", "force_mode": "simple"},
     )
     snapshot = await client.get(f"/v1/runs/{RUN_ID}", headers=headers())
+    run_page = await client.get("/v1/runs?limit=10", headers=headers())
+    trace = await client.get(f"/v1/runs/{RUN_ID}/trace", headers=headers())
+    usage = await client.get("/v1/workspace/usage", headers=headers())
     cancelled = await client.post(f"/v1/runs/{RUN_ID}/cancel", headers=headers(idempotent=True))
     resumed = await client.post(f"/v1/runs/{RUN_ID}/resume", headers=headers(idempotent=True))
 
@@ -181,6 +234,10 @@ async def test_conversation_and_run_routes(client: AsyncClient) -> None:
     assert detail.json()["messages"][0]["content"] == "Question"
     assert accepted.status_code == 202
     assert snapshot.json()["status"] == "completed"
+    assert run_page.json()["items"][0]["question"] == "Question"
+    assert trace.json()["steps"][0]["summary"] == "Retrieved workspace evidence."
+    assert trace.json()["tool_calls"][0]["output_summary"] == {"results": 3}
+    assert usage.json()["document_bytes"] == 2048
     assert cancelled.json() == OperationAccepted(id=RUN_ID, status="cancelling").model_dump(
         mode="json"
     )

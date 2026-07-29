@@ -8,9 +8,10 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { requestJson } from "../../api/client";
+import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/auth-context";
 import { useWorkspace } from "../workspaces/workspace-context";
 import type {
@@ -45,6 +46,27 @@ export function ApprovalsPage() {
       return requestJson<ApprovalPageResult>(`/v1/approvals${query}`, { headers });
     },
   });
+
+  useEffect(() => {
+    if (!supabase || !workspaceId) return;
+    const client = supabase;
+    const channel = client
+      .channel(`approvals:${workspaceId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "approval_requests",
+          filter: `workspace_id=eq.${workspaceId}`,
+        },
+        () => void queryClient.invalidateQueries({ queryKey: ["approvals", workspaceId] }),
+      )
+      .subscribe();
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [queryClient, workspaceId]);
 
   const selected = useMemo(
     () =>

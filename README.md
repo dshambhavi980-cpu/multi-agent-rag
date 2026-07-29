@@ -8,7 +8,7 @@ This repository is being built from the phased implementation blueprint in
 The current frontend preview is available at
 [DocPilot on Vercel](https://docpilot-rag-assistant.vercel.app). It includes the
 guest Supabase session, connected FastAPI service, document workflows, memory,
-and human review queue.
+human review queue, streamed chat, source evidence, and agent run traces.
 
 ## Current status
 
@@ -116,6 +116,17 @@ Phase 9 implements durable human-in-the-loop controls:
 - Decision keys and database constraints prevent duplicate execution.
 - Every decision retains reviewer identity, comment, previous state, final
   state, and timestamp in an immutable audit record.
+
+Phase 10 implements the production product experience:
+
+- Streamed workspace chat with grounded inline citations and protected sources.
+- Responsive document, agent-run, review, evaluation, memory, and settings views.
+- Virtualized document and trace lists for predictable long-session performance.
+- Realtime ingestion and approval refreshes plus explicit offline, cold-start,
+  timeout, provider, empty, loading, and retry states.
+- Concise execution timelines that expose decisions and tool outcomes without
+  internal chain-of-thought.
+- Workspace usage counters and guest-first operation across desktop and mobile.
 
 ## Quick start
 

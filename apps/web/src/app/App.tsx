@@ -11,15 +11,44 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 
 import { AuthGate } from "../features/auth/AuthGate";
-import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { SystemOverview } from "../features/system/SystemOverview";
-import { DocumentsPage } from "../features/documents/DocumentsPage";
-import { MemoryPage } from "../features/memory/MemoryPage";
 import { WorkspaceGate } from "../features/workspaces/WorkspaceGate";
 import { useWorkspace } from "../features/workspaces/workspace-context";
+
+const ApprovalsPage = lazy(() =>
+  import("../features/approvals/ApprovalsPage").then((module) => ({
+    default: module.ApprovalsPage,
+  })),
+);
+const ChatPage = lazy(() =>
+  import("../features/chat/ChatPage").then((module) => ({ default: module.ChatPage })),
+);
+const DocumentsPage = lazy(() =>
+  import("../features/documents/DocumentsPage").then((module) => ({
+    default: module.DocumentsPage,
+  })),
+);
+const EvaluationsPage = lazy(() =>
+  import("../features/evaluations/EvaluationsPage").then((module) => ({
+    default: module.EvaluationsPage,
+  })),
+);
+const MemoryPage = lazy(() =>
+  import("../features/memory/MemoryPage").then((module) => ({
+    default: module.MemoryPage,
+  })),
+);
+const RunsPage = lazy(() =>
+  import("../features/runs/RunsPage").then((module) => ({ default: module.RunsPage })),
+);
+const SettingsPage = lazy(() =>
+  import("../features/settings/SettingsPage").then((module) => ({
+    default: module.SettingsPage,
+  })),
+);
 
 const navigation = [
   { label: "Overview", icon: Gauge, path: "/" },
@@ -76,9 +105,13 @@ function AuthenticatedApp() {
 
   const routeContent =
     pathname === "/" ? <SystemOverview /> :
+    pathname === "/chat" ? <ChatPage /> :
     pathname === "/documents" ? <DocumentsPage /> :
+    pathname === "/runs" ? <RunsPage /> :
     pathname === "/approvals" ? <ApprovalsPage /> :
+    pathname === "/evaluations" ? <EvaluationsPage /> :
     pathname === "/memory" ? <MemoryPage /> :
+    pathname === "/settings" ? <SettingsPage /> :
     <Placeholder title={routeTitles[pathname] ?? "Not found"} />;
 
   return (
@@ -175,7 +208,11 @@ function AuthenticatedApp() {
           </div>
         </header>
 
-        <main className="main-content">{routeContent}</main>
+        <main className="main-content">
+          <Suspense fallback={<p className="table-message">Loading workspace view...</p>}>
+            {routeContent}
+          </Suspense>
+        </main>
       </div>
 
       {mobileNavigationOpen ? (

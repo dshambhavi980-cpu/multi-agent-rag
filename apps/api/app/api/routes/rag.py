@@ -18,9 +18,12 @@ from app.models.rag import (
     OperationAccepted,
     Run,
     RunAccepted,
+    RunPage,
+    RunTrace,
+    WorkspaceUsage,
 )
 from app.services.rag import (
-    TERMINAL_STATUSES,
+    STREAM_END_STATUSES,
     GroundedRagService,
     heartbeat_event,
     sse_envelope,
@@ -140,6 +143,47 @@ async def get_run(
     )
 
 
+@router.get("/runs", operation_id="listRuns", response_model=RunPage)
+async def list_runs(
+    request: Request,
+    workspace_id: WorkspaceHeader,
+    auth: AuthDependency,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> RunPage:
+    await require_workspace_access(workspace_id, request, auth)
+    service = cast(GroundedRagService, request.app.state.rag)
+    return await service.list_runs(
+        workspace_id=workspace_id, actor_id=auth.user.id, limit=limit
+    )
+
+
+@router.get("/runs/{run_id}/trace", operation_id="getRunTrace", response_model=RunTrace)
+async def get_run_trace(
+    run_id: UUID,
+    request: Request,
+    workspace_id: WorkspaceHeader,
+    auth: AuthDependency,
+) -> RunTrace:
+    await require_workspace_access(workspace_id, request, auth)
+    service = cast(GroundedRagService, request.app.state.rag)
+    return await service.get_run_trace(
+        workspace_id=workspace_id, actor_id=auth.user.id, run_id=run_id
+    )
+
+
+@router.get("/workspace/usage", operation_id="getWorkspaceUsage", response_model=WorkspaceUsage)
+async def get_workspace_usage(
+    request: Request,
+    workspace_id: WorkspaceHeader,
+    auth: AuthDependency,
+) -> WorkspaceUsage:
+    await require_workspace_access(workspace_id, request, auth)
+    service = cast(GroundedRagService, request.app.state.rag)
+    return await service.workspace_usage(
+        workspace_id=workspace_id, actor_id=auth.user.id
+    )
+
+
 @router.get("/runs/{run_id}/events", operation_id="streamRunEvents")
 async def stream_run_events(
     run_id: UUID,
@@ -182,7 +226,7 @@ async def stream_run_events(
                 actor_id=auth.user.id,
                 run_id=run_id,
             )
-            if run.status in TERMINAL_STATUSES and not events:
+            if run.status in STREAM_END_STATUSES and not events:
                 return
             if monotonic() - last_emission >= service.config.heartbeat_seconds:
                 heartbeat = heartbeat_event(run_id, workspace_id, sequence)

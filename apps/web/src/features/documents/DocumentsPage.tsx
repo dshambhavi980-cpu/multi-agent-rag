@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { FileCheck2, FileUp, LoaderCircle, RefreshCw, UploadCloud } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
@@ -39,6 +40,7 @@ export function DocumentsPage() {
   const { activeWorkspace } = useWorkspace();
   const queryClient = useQueryClient();
   const input = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const workspaceId = activeWorkspace?.id;
@@ -61,6 +63,24 @@ export function DocumentsPage() {
         ? 2_000
         : false,
   });
+  const documentItems = documents.data?.items ?? [];
+  // React Compiler intentionally leaves TanStack Virtual's imperative API alone.
+  // eslint-disable-next-line react-hooks/incompatible-library
+  const documentVirtualizer = useVirtualizer({
+    count: documentItems.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => 54,
+    overscan: 8,
+    initialRect: { width: 800, height: 480 },
+  });
+  const measuredRows = documentVirtualizer.getVirtualItems();
+  const documentRows = measuredRows.length
+    ? measuredRows
+    : documentItems.slice(0, 20).map((document, index) => ({
+        index,
+        key: document.id,
+        start: index * 54,
+      }));
 
   useEffect(() => {
     if (!supabase || !workspaceId) return;
@@ -195,7 +215,7 @@ export function DocumentsPage() {
       </div>
       {message ? <p className="upload-message" role="status">{message}</p> : null}
 
-      <div className="document-table-wrap">
+      <div className="document-table-wrap" ref={listRef}>
         <table className="document-table">
           <thead>
             <tr>
@@ -203,9 +223,18 @@ export function DocumentsPage() {
               <th>Pages</th><th>Added</th>
             </tr>
           </thead>
-          <tbody>
-            {(documents.data?.items ?? []).map((document) => (
-              <tr key={document.id}>
+          <tbody
+            className="document-virtual-body"
+            style={{ height: `${String(documentVirtualizer.getTotalSize())}px` }}
+          >
+            {documentRows.map((virtualItem) => {
+              const document = documentItems[virtualItem.index];
+              if (!document) return null;
+              return (
+              <tr
+                key={document.id}
+                style={{ transform: `translateY(${String(virtualItem.start)}px)` }}
+              >
                 <td>
                   <span className="document-name">
                     <FileCheck2 size={17} />
@@ -222,11 +251,19 @@ export function DocumentsPage() {
                 <td>{document.page_count ?? "-"}</td>
                 <td>{new Date(document.created_at).toLocaleDateString()}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {documents.isLoading ? <p className="table-message">Loading documents...</p> : null}
-        {documents.isError ? <p className="table-message">Documents could not be loaded.</p> : null}
+        {documents.isError ? (
+          <div className="table-message">
+            <p>Documents could not be loaded.</p>
+            <button className="secondary-button" type="button" onClick={() => void documents.refetch()}>
+              <RefreshCw size={16} /> Retry
+            </button>
+          </div>
+        ) : null}
         {!documents.isLoading && !documents.data?.items.length ? (
           <p className="table-message">No documents in this workspace yet.</p>
         ) : null}

@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api";
 
 export class ApiClientError extends Error {
   constructor(
@@ -53,4 +53,46 @@ export async function getJson<T>(
   }
 
   return (await response.json()) as T;
+}
+
+export type SseEvent = {
+  event_type: string;
+  sequence: number;
+  [key: string]: unknown;
+};
+
+export async function streamSse(
+  path: string,
+  options: RequestInit,
+  onEvent: (event: SseEvent) => void,
+): Promise<void> {
+  const headers = new Headers(options.headers);
+  headers.set("Accept", "text/event-stream");
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers,
+  });
+  if (!response.ok) {
+    throw new ApiClientError(await parseError(response), response.status);
+  }
+  if (!response.body) throw new ApiClientError("The response stream was unavailable.", 502);
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const frames = buffer.split("\n\n");
+    buffer = frames.pop() ?? "";
+    for (const frame of frames) {
+      const data = frame
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trim())
+        .join("\n");
+      if (data.length > 0) onEvent(JSON.parse(data) as SseEvent);
+    }
+    if (done) break;
+  }
 }

@@ -1,4 +1,4 @@
-import { ApiClientError, getJson, requestJson } from "./client";
+import { ApiClientError, getJson, requestJson, streamSse } from "./client";
 
 test("returns parsed JSON for a successful request", async () => {
   vi.spyOn(globalThis, "fetch").mockResolvedValue(
@@ -57,5 +57,38 @@ test("falls back when an error response is not JSON", async () => {
   );
   await expect(requestJson("/documents")).rejects.toEqual(
     new ApiClientError("Request failed with status 502.", 502),
+  );
+});
+
+test("parses SSE frames split across stream chunks", async () => {
+  const encoder = new TextEncoder();
+  const body = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode('event: answer.delta\ndata: {"event_type":"answer.'));
+      controller.enqueue(encoder.encode('delta","sequence":1,"delta":"Hello"}\n\n'));
+      controller.close();
+    },
+  });
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(body));
+  const events: object[] = [];
+  await streamSse("/events", { headers: { Authorization: "Bearer token" } }, (event) => {
+    events.push(event);
+  });
+  expect(events).toEqual([
+    { event_type: "answer.delta", sequence: 1, delta: "Hello" },
+  ]);
+});
+
+test("reports failed and missing SSE bodies", async () => {
+  vi.spyOn(globalThis, "fetch")
+    .mockResolvedValueOnce(
+      new Response(JSON.stringify({ detail: "Run not found." }), { status: 404 }),
+    )
+    .mockResolvedValueOnce({ ok: true, body: null } as Response);
+  await expect(streamSse("/events", {}, vi.fn())).rejects.toEqual(
+    new ApiClientError("Run not found.", 404),
+  );
+  await expect(streamSse("/events", {}, vi.fn())).rejects.toEqual(
+    new ApiClientError("The response stream was unavailable.", 502),
   );
 });

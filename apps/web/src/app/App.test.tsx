@@ -58,15 +58,24 @@ vi.mock("../features/system/SystemOverview", () => ({
   SystemOverview: () => <h1>System overview</h1>,
 }));
 
-test("navigates between operational sections", async () => {
+test("lazy-loads every operational section", async () => {
   const user = userEvent.setup();
   renderWithProviders(<App />);
 
   expect(screen.getByRole("heading", { name: "System overview" })).toBeInTheDocument();
 
-  await user.click(screen.getByRole("link", { name: "Documents" }));
-
-  expect(screen.getByRole("heading", { name: "Documents" })).toBeInTheDocument();
+  for (const name of [
+    "Chat",
+    "Documents",
+    "Agent runs",
+    "Review queue",
+    "Evaluations",
+    "Memory",
+    "Settings",
+  ]) {
+    await user.click(screen.getByRole("link", { name }));
+    expect(await screen.findByRole("heading", { name })).toBeInTheDocument();
+  }
 });
 
 test("opens and closes mobile navigation", async () => {

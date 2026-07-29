@@ -111,6 +111,61 @@ class Run(BaseModel):
     completed_at: datetime | None = None
 
 
+class RunSummary(Run):
+    question: str
+
+
+class AgentStep(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: UUID
+    step_number: int = Field(ge=1, le=8)
+    node: str
+    status: Literal["succeeded", "failed", "skipped"]
+    summary: str
+    duration_ms: float = Field(ge=0)
+    created_at: datetime
+
+
+class ToolCall(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: UUID
+    tool_name: str
+    permission: str
+    status: Literal["succeeded", "failed"]
+    output_summary: dict[str, object]
+    duration_ms: float = Field(ge=0)
+    created_at: datetime
+
+
+class RunPage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[RunSummary]
+    next_cursor: str | None = None
+
+
+class RunTrace(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    run: RunSummary
+    steps: list[AgentStep]
+    tool_calls: list[ToolCall]
+
+
+class WorkspaceUsage(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    documents: int = Field(ge=0)
+    document_bytes: int = Field(ge=0)
+    ready_documents: int = Field(ge=0)
+    conversations: int = Field(ge=0)
+    runs: int = Field(ge=0)
+    approvals: int = Field(ge=0)
+    memories: int = Field(ge=0)
+
+
 class OperationAccepted(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

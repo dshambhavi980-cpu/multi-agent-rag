@@ -82,6 +82,33 @@ class Admin:
 
     async def rpc(self, name: str, payload: dict[str, Any]) -> Any:
         self.calls.append((name, payload))
+        run_summary = {
+            "id": str(RUN_ID),
+            "conversation_id": str(CONVERSATION_ID),
+            "status": "completed",
+            "mode": "simple",
+            "step_count": 1,
+            "confidence": 0.9,
+            "answer_status": "grounded",
+            "question": "How is the token rotated?",
+            "created_at": NOW.isoformat(),
+            "updated_at": NOW.isoformat(),
+            "completed_at": NOW.isoformat(),
+        }
+        if name == "list_rag_runs":
+            return {"items": [run_summary], "next_cursor": None}
+        if name == "get_agent_run_trace":
+            return {"run": run_summary, "steps": [], "tool_calls": []}
+        if name == "get_workspace_usage":
+            return {
+                "documents": 2,
+                "document_bytes": 2048,
+                "ready_documents": 1,
+                "conversations": 1,
+                "runs": 1,
+                "approvals": 0,
+                "memories": 3,
+            }
         if name == "append_rag_run_event":
             self.sequence += 1
             return {"sequence": self.sequence}
@@ -152,6 +179,26 @@ def test_segment_validation_rejects_unknown_and_uncited_claims() -> None:
     assert used == {"C1"}
     assert (reviewed, accepted, conflict) == (3, 1, False)
     assert remainder == "Partial"
+
+
+async def test_product_read_models_use_workspace_scoped_rpcs() -> None:
+    admin = Admin()
+    instance = service(admin, retrieval_response(), Generation())
+
+    runs = await instance.list_runs(workspace_id=WORKSPACE_ID, actor_id=USER_ID, limit=20)
+    trace = await instance.get_run_trace(
+        workspace_id=WORKSPACE_ID, actor_id=USER_ID, run_id=RUN_ID
+    )
+    usage = await instance.workspace_usage(workspace_id=WORKSPACE_ID, actor_id=USER_ID)
+
+    assert runs.items[0].question == "How is the token rotated?"
+    assert trace.run.id == RUN_ID
+    assert usage.document_bytes == 2048
+    assert [name for name, _ in admin.calls] == [
+        "list_rag_runs",
+        "get_agent_run_trace",
+        "get_workspace_usage",
+    ]
 
 
 async def test_grounded_run_persists_only_allowed_citations() -> None:

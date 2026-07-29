@@ -22,6 +22,9 @@ from app.models.rag import (
     CreateMessageRequest,
     Run,
     RunAccepted,
+    RunPage,
+    RunTrace,
+    WorkspaceUsage,
 )
 from app.models.retrieval import RetrievalFilters, RetrievalRequest, RetrievalResponse
 from app.services.approvals import ApprovalService
@@ -36,6 +39,7 @@ ANSWER_PROMPT = (PROMPT_DIR / "rag_answer_v1.txt").read_text(encoding="utf-8").s
 CITATION_PATTERN = re.compile(r"\[(C[1-9][0-9]*)\]")
 SEGMENT_BOUNDARY = re.compile(r"(?:[.!?](?:\s+|$)|\n+)")
 TERMINAL_STATUSES = {"completed", "failed", "cancelled", "timed_out"}
+STREAM_END_STATUSES = TERMINAL_STATUSES | {"awaiting_approval"}
 INSUFFICIENT_ANSWER = (
     "I do not have enough evidence in the selected workspace documents to answer that question."
 )
@@ -272,6 +276,47 @@ class GroundedRagService:
                     "p_workspace_id": str(workspace_id),
                     "p_actor_id": str(actor_id),
                     "p_run_id": str(run_id),
+                },
+            )
+        )
+
+    async def list_runs(
+        self, *, workspace_id: UUID, actor_id: UUID, limit: int
+    ) -> RunPage:
+        return RunPage.model_validate(
+            await self.admin.rpc(
+                "list_rag_runs",
+                {
+                    "p_workspace_id": str(workspace_id),
+                    "p_actor_id": str(actor_id),
+                    "p_limit": limit,
+                },
+            )
+        )
+
+    async def get_run_trace(
+        self, *, workspace_id: UUID, actor_id: UUID, run_id: UUID
+    ) -> RunTrace:
+        return RunTrace.model_validate(
+            await self.admin.rpc(
+                "get_agent_run_trace",
+                {
+                    "p_workspace_id": str(workspace_id),
+                    "p_actor_id": str(actor_id),
+                    "p_run_id": str(run_id),
+                },
+            )
+        )
+
+    async def workspace_usage(
+        self, *, workspace_id: UUID, actor_id: UUID
+    ) -> WorkspaceUsage:
+        return WorkspaceUsage.model_validate(
+            await self.admin.rpc(
+                "get_workspace_usage",
+                {
+                    "p_workspace_id": str(workspace_id),
+                    "p_actor_id": str(actor_id),
                 },
             )
         )

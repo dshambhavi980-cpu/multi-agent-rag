@@ -473,6 +473,26 @@ paths:
         "503":
           $ref: "#/components/responses/Unavailable"
 
+  /v1/runs:
+    get:
+      tags: [Runs]
+      operationId: listRuns
+      summary: List recent workspace runs
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Recent run summaries
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /v1/runs/{runId}:
     get:
       tags: [Runs]
@@ -488,6 +508,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Run"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/runs/{runId}/trace:
+    get:
+      tags: [Runs]
+      operationId: getRunTrace
+      summary: Get a concise run timeline without internal reasoning
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Agent steps and tool outcomes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RunTrace"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -629,6 +671,25 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApprovalPage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /v1/workspace/usage:
+    get:
+      tags: [Workspaces]
+      operationId: getWorkspaceUsage
+      summary: Get current workspace record and document usage
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+      responses:
+        "200":
+          description: Workspace usage counters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceUsage"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1717,6 +1778,122 @@ components:
         completed_at:
           type: [string, "null"]
           format: date-time
+
+    RunSummary:
+      allOf:
+        - $ref: "#/components/schemas/Run"
+        - type: object
+          required: [question]
+          properties:
+            question:
+              type: string
+
+    AgentStep:
+      type: object
+      additionalProperties: false
+      required: [id, step_number, node, status, summary, duration_ms, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        step_number:
+          type: integer
+          minimum: 1
+          maximum: 8
+        node:
+          type: string
+        status:
+          type: string
+          enum: [succeeded, failed, skipped]
+        summary:
+          type: string
+        duration_ms:
+          type: number
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+
+    ToolCall:
+      type: object
+      additionalProperties: false
+      required: [id, tool_name, permission, status, output_summary, duration_ms, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        tool_name:
+          type: string
+        permission:
+          type: string
+        status:
+          type: string
+          enum: [succeeded, failed]
+        output_summary:
+          type: object
+          additionalProperties: true
+        duration_ms:
+          type: number
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+
+    RunPage:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/RunSummary"
+        next_cursor:
+          type: [string, "null"]
+
+    RunTrace:
+      type: object
+      additionalProperties: false
+      required: [run, steps, tool_calls]
+      properties:
+        run:
+          $ref: "#/components/schemas/RunSummary"
+        steps:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentStep"
+        tool_calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/ToolCall"
+
+    WorkspaceUsage:
+      type: object
+      additionalProperties: false
+      required:
+        [documents, document_bytes, ready_documents, conversations, runs, approvals, memories]
+      properties:
+        documents:
+          type: integer
+          minimum: 0
+        document_bytes:
+          type: integer
+          minimum: 0
+        ready_documents:
+          type: integer
+          minimum: 0
+        conversations:
+          type: integer
+          minimum: 0
+        runs:
+          type: integer
+          minimum: 0
+        approvals:
+          type: integer
+          minimum: 0
+        memories:
+          type: integer
+          minimum: 0
 
     ReplayRunRequest:
       type: object
