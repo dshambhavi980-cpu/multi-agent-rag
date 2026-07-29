@@ -68,6 +68,24 @@ async def require_workspace_access(
             "You do not have access to this workspace.",
             status=403,
         )
+    rate_limiter = getattr(request.app.state, "rate_limiter", None)
+    if rate_limiter is not None:
+        expensive = request.method != "GET" and any(
+            marker in request.url.path
+            for marker in (
+                "/messages",
+                "/retrieval",
+                "/documents",
+                "/evaluations",
+                "/approvals",
+            )
+        )
+        await rate_limiter.check(
+            workspace_id=workspace_id,
+            actor_id=auth.user.id,
+            bucket="expensive" if expensive else "standard",
+            expensive=expensive,
+        )
     structlog.contextvars.bind_contextvars(
         workspace_id=str(workspace_id),
         workspace_role=access.role,

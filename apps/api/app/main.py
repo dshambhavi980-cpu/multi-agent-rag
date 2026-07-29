@@ -10,7 +10,7 @@ from app import __version__
 from app.agents.orchestrator import AgentConfig, AgentOrchestrator
 from app.agents.tools import ToolRegistry
 from app.api.errors import install_error_handlers
-from app.api.middleware import RequestContextMiddleware
+from app.api.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.api.routes.approvals import router as approvals_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.documents import router as documents_router
@@ -40,7 +40,10 @@ from app.services.evaluations import EvaluationService
 from app.services.ingestion_worker import IngestionWorker, WorkerConfig
 from app.services.memory import MemoryConfig, MemoryService
 from app.services.rag import GroundedRagService, RagConfig
+from app.services.rate_limits import PostgreSQLRateLimiter, RateLimitConfig
 from app.services.readiness import ReadinessRegistry, static_check
+from app.services.recovery import RecoveryMonitor
+from app.services.resilience import ResilienceConfig
 from app.services.retrieval import HybridRetrievalService, RetrievalConfig
 
 
@@ -57,6 +60,7 @@ def _build_embedding_client(
             timeout_seconds=settings.embedding_timeout_seconds,
             max_retries=settings.embedding_max_retries,
             retry_base_seconds=settings.embedding_retry_base_seconds,
+            resilience=_resilience_config(settings),
         ),
     )
 
@@ -93,7 +97,17 @@ def _build_generation_client(
             max_retries=settings.generation_max_retries,
             retry_base_seconds=settings.generation_retry_base_seconds,
             max_output_tokens=settings.generation_max_output_tokens,
+            resilience=_resilience_config(settings),
         ),
+    )
+
+
+def _resilience_config(settings: Settings) -> ResilienceConfig:
+    return ResilienceConfig(
+        max_concurrency=settings.provider_max_concurrency,
+        acquire_timeout_seconds=settings.provider_acquire_timeout_seconds,
+        failure_threshold=settings.provider_circuit_failure_threshold,
+        recovery_seconds=settings.provider_circuit_recovery_seconds,
     )
 
 
@@ -154,7 +168,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
     configure_logging(resolved_settings.log_level, resolved_settings.environment)
 
     @asynccontextmanager
-    async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    async def lifespan(application: FastAPI) -> AsyncIterator[None]:  # noqa: PLR0915
         application.state.started_monotonic = monotonic()
         application.state.readiness = ReadinessRegistry(
             checks={"application": static_check("ready")}
@@ -201,6 +215,27 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
             application.state.embeddings = UnavailableEmbeddingClient()
             application.state.generation = UnavailableGenerationClient()
         worker = None
+        recovery = None
+        application.state.rate_limiter = None
+        if isinstance(application.state.supabase_admin, SupabaseAdminClient):
+            if resolved_settings.rate_limit_enabled:
+                application.state.rate_limiter = PostgreSQLRateLimiter(
+                    application.state.supabase_admin,
+                    RateLimitConfig(
+                        user_requests_per_minute=resolved_settings.user_requests_per_minute,
+                        workspace_requests_per_minute=(
+                            resolved_settings.workspace_requests_per_minute
+                        ),
+                        expensive_requests_per_minute=(
+                            resolved_settings.expensive_requests_per_minute
+                        ),
+                    ),
+                )
+            recovery = RecoveryMonitor(
+                application.state.supabase_admin,
+                resolved_settings.recovery_interval_seconds,
+            )
+            recovery.start()
         application.state.retrieval = _build_retrieval_service(
             resolved_settings,
             application.state.supabase_admin,
@@ -264,6 +299,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
             )
             worker.start()
         application.state.ingestion_worker = worker
+        application.state.recovery_monitor = recovery
         get_logger().info(
             "application_started",
             environment=resolved_settings.environment,
@@ -272,6 +308,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
         yield
         if worker:
             await worker.stop()
+        if recovery:
+            await recovery.stop()
         await application.state.evaluations.aclose()
         await application.state.rag.aclose()
         await application.state.auth_verifier.aclose()
@@ -294,6 +332,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
     application.state.package_version = __version__
 
     application.add_middleware(RequestContextMiddleware)
+    application.add_middleware(SecurityHeadersMiddleware)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[str(origin).rstrip("/") for origin in resolved_settings.cors_origins],

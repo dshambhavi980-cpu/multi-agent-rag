@@ -91,6 +91,13 @@ Phase 7 implements bounded multi-agent orchestration:
 - Strict step, recursion, concurrency, time, context, and output budgets.
 - Prompt-injection containment and citation review before answer publication.
 
+Phase 13 adds production hardening:
+
+- Provider concurrency backpressure, circuit breakers, and safe agentic-to-simple degradation.
+- PostgreSQL-backed user/workspace rate limits and durable stale-work recovery.
+- Prompt-injection labeling, upload validation, CORS allowlists, and secure response headers.
+- Load/profiling tools, capacity reporting, SBOM and vulnerability gates, backup and secret rotation runbooks.
+
 Phase 8 implements attributable, bounded memory:
 
 - Existing conversation messages feed a fixed-size recent-history window.

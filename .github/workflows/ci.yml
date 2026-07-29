@@ -40,6 +40,28 @@ jobs:
       - run: python -m pytest
         working-directory: apps/api
 
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: python -m venv .audit-venv
+      - run: .audit-venv/bin/python -m pip install -e "./apps/api" pip-audit==2.9.0
+      - run: .audit-venv/bin/python -m pip_audit --local --skip-editable
+      - run: npm audit --omit=dev --audit-level=high
+      - run: .audit-venv/bin/python scripts/generate_sbom.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: phase-13-sbom
+          path: artifacts/sbom.cdx.json
+
   frontend:
     runs-on: ubuntu-latest
     steps:

@@ -12,6 +12,9 @@ async def test_health_reports_liveness_and_request_id(client: AsyncClient) -> No
     assert response.json()["status"] == "ok"
     assert response.json()["cold_start"] is False
     UUID(response.headers["X-Request-ID"])
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "no-referrer"
 
 
 async def test_cors_accepts_configured_origin_without_trailing_slash(
@@ -36,6 +39,11 @@ async def test_valid_request_id_is_preserved(client: AsyncClient) -> None:
     response = await client.get("/health", headers={"X-Request-ID": request_id})
 
     assert response.headers["X-Request-ID"] == request_id
+
+
+async def test_https_responses_enable_hsts(client: AsyncClient) -> None:
+    response = await client.get("/health", headers={"X-Forwarded-Proto": "https"})
+    assert response.headers["Strict-Transport-Security"].startswith("max-age=31536000")
 
 
 async def test_invalid_request_id_is_replaced(client: AsyncClient) -> None:

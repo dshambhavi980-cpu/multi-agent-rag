@@ -12,6 +12,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.api.errors import ApplicationError
 from app.models.retrieval import RetrievalResponse
+from app.services.content_security import sanitize_untrusted_text
 
 from .models import AgentNode, AgentResult, AgentState, PlannedSubtask, RetrievalToolInput
 from .tools import ToolRegistry
@@ -197,7 +198,7 @@ class AgentOrchestrator:
             for item in current.get("evidence", []):
                 block = (
                     f"[{item['citation_id']}] {item['label']}\n"
-                    f"<untrusted_evidence>{item['quote']}</untrusted_evidence>"
+                    f"<untrusted_evidence>{sanitize_untrusted_text(str(item['quote']))}</untrusted_evidence>"
                 )
                 if used + len(block) > self.config.context_char_budget:
                     break

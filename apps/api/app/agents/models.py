@@ -35,6 +35,7 @@ class AgentState(TypedDict):
     resume_node: AgentNode
     route_reason: str
     conversation_id: NotRequired[str]
+    source_message_id: NotRequired[str]
     memory_context: NotRequired[str]
     plan: NotRequired[list[dict[str, object]]]
     evidence: NotRequired[list[dict[str, object]]]

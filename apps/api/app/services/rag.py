@@ -31,11 +31,12 @@ from app.models.rag import (
 )
 from app.models.retrieval import RetrievalFilters, RetrievalRequest, RetrievalResponse
 from app.services.approvals import ApprovalService
+from app.services.content_security import sanitize_untrusted_text
 from app.services.memory import MemoryService
 from app.services.retrieval import HybridRetrievalService
 
-PROMPT_VERSION = "rag-system-v1+answer-v1+memory-v1"
-AGENT_PROMPT_VERSION = "agent-system-v1+memory-v1"
+PROMPT_VERSION = "rag-system-v1+answer-v1+memory-v1+injection-v1"
+AGENT_PROMPT_VERSION = "agent-system-v1+memory-v1+injection-v1"
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
 SYSTEM_PROMPT = (PROMPT_DIR / "rag_system_v1.txt").read_text(encoding="utf-8").strip()
 ANSWER_PROMPT = (PROMPT_DIR / "rag_answer_v1.txt").read_text(encoding="utf-8").strip()
@@ -623,6 +624,7 @@ class GroundedRagService:
             "resume_node": "supervisor",
             "route_reason": route_reason,
             "conversation_id": str(conversation_id),
+            "source_message_id": str(source_message_id),
             "memory_context": memory_context,
         }
         await self._execute_agentic_state(state)
@@ -739,6 +741,40 @@ class GroundedRagService:
             )
             raise
         except ApplicationError as exc:
+            if (
+                exc.code
+                in {
+                    "AGENTIC_MODE_NOT_CONFIGURED",
+                    "PROVIDER_BACKPRESSURE",
+                    "PROVIDER_CIRCUIT_OPEN",
+                }
+                and state.get("conversation_id")
+                and state.get("source_message_id")
+            ):
+                await self._event(
+                    run_id,
+                    workspace_id,
+                    "run.degraded",
+                    {"from": "agentic", "to": "simple", "reason": exc.code},
+                )
+                await self._execute(
+                    run_id=run_id,
+                    workspace_id=workspace_id,
+                    actor_id=UUID(state["actor_id"]),
+                    request_id=UUID(state["request_id"]),
+                    body=CreateMessageRequest(
+                        content=state["question"],
+                        document_ids=(
+                            [UUID(value) for value in cast(list[str], state["document_ids"])]
+                            if state.get("document_ids")
+                            else None
+                        ),
+                        force_mode="simple",
+                    ),
+                    conversation_id=UUID(state["conversation_id"]),
+                    source_message_id=UUID(state["source_message_id"]),
+                )
+                return
             status = "timed_out" if exc.code == "AGENT_BUDGET_TIMEOUT" else "failed"
             await self._fail(
                 run_id,
@@ -993,7 +1029,9 @@ class GroundedRagService:
     ) -> ValidatedAnswer:
         allowed = {str(item["citation_id"]) for item in evidence}
         context = "\n\n".join(
-            f"[{item['citation_id']}] {item['label']}\n{item['quote']}" for item in evidence
+            f"[{item['citation_id']}] {item['label']}\n"
+            f"<untrusted_evidence>{sanitize_untrusted_text(str(item['quote']))}</untrusted_evidence>"
+            for item in evidence
         )
         prompt = ANSWER_PROMPT.format(question=question, context=context)
         if memory_context:

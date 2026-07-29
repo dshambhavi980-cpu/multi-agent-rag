@@ -10,7 +10,7 @@ from app.models.problem import Problem
 
 
 class ApplicationError(Exception):
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         code: str,
         title: str,
@@ -18,6 +18,7 @@ class ApplicationError(Exception):
         *,
         status: int,
         retryable: bool = False,
+        retry_after_seconds: int | None = None,
     ) -> None:
         super().__init__(detail)
         self.code = code
@@ -25,6 +26,7 @@ class ApplicationError(Exception):
         self.detail = detail
         self.status = status
         self.retryable = retryable
+        self.retry_after_seconds = retry_after_seconds
 
 
 def _request_id(request: Request) -> UUID:
@@ -90,7 +92,12 @@ async def application_error_handler(
         request_id=_request_id(request),
         retryable=exc.retryable,
     )
-    return problem_response(problem)
+    headers = (
+        {"Retry-After": str(exc.retry_after_seconds)}
+        if exc.retry_after_seconds is not None
+        else None
+    )
+    return problem_response(problem, headers=headers)
 
 
 def install_error_handlers(application: FastAPI) -> None:

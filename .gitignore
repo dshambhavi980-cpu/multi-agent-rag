@@ -33,3 +33,5 @@ Thumbs.db
 # Local data
 .local/
 *.log
+artifacts/
+backups/

@@ -1,13 +1,14 @@
 import asyncio
 import json
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from secrets import randbelow
 from typing import Any, cast
 
 import httpx
 
 from app.api.errors import ApplicationError
+from app.services.resilience import ProviderGuard, ResilienceConfig
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,7 @@ class GeminiGenerationConfig:
     max_retries: int
     retry_base_seconds: float
     max_output_tokens: int
+    resilience: ResilienceConfig = field(default_factory=ResilienceConfig)
 
 
 class GeminiGenerationClient:
@@ -25,6 +27,7 @@ class GeminiGenerationClient:
         self.max_retries = config.max_retries
         self.retry_base_seconds = config.retry_base_seconds
         self.max_output_tokens = config.max_output_tokens
+        self._guard = ProviderGuard("Gemini generation", config.resilience)
         self._client = httpx.AsyncClient(
             base_url="https://generativelanguage.googleapis.com/v1beta",
             headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
@@ -35,6 +38,11 @@ class GeminiGenerationClient:
         await self._client.aclose()
 
     async def stream_answer(self, *, system_prompt: str, prompt: str) -> AsyncIterator[str]:
+        async with self._guard.call():
+            async for token in self._stream_answer(system_prompt=system_prompt, prompt=prompt):
+                yield token
+
+    async def _stream_answer(self, *, system_prompt: str, prompt: str) -> AsyncIterator[str]:
         payload = {
             "systemInstruction": {"parts": [{"text": system_prompt}]},
             "contents": [{"role": "user", "parts": [{"text": prompt}]}],
