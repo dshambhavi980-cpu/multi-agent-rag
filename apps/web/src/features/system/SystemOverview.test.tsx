@@ -59,7 +59,9 @@ test("renders an actionable unreachable state", async () => {
 
   renderWithProviders(<SystemOverview />);
 
-  expect(await screen.findByRole("alert")).toHaveTextContent("API unreachable");
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Retrying automatically every 10 seconds.",
+  );
   const retryButton = screen.getByRole("button", { name: "Retry" });
   expect(retryButton).toBeEnabled();
   await user.click(retryButton);

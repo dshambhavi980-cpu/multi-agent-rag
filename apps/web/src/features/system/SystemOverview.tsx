@@ -41,7 +41,7 @@ export function SystemOverview() {
       <section className="system-message system-message-error" role="alert">
         <CircleAlert size={26} aria-hidden="true" />
         <h1>API unreachable</h1>
-        <p>The free backend may be waking up. Retry after a short wait.</p>
+        <p>The free backend may be waking up. Retrying automatically every 10 seconds.</p>
         <button className="primary-button" type="button" onClick={refresh}>
           <RefreshCw size={17} aria-hidden="true" />
           Retry
