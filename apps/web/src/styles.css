@@ -1401,6 +1401,220 @@ select:focus-visible {
   font-size: 13px;
 }
 
+.evaluation-suite-band {
+  align-items: center;
+  background: #eef7f5;
+  border-left: 3px solid #087f70;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  margin-bottom: 18px;
+  padding: 13px 15px;
+}
+
+.evaluation-suite-band > svg,
+.evaluation-suite-band > span {
+  color: #087f70;
+}
+
+.evaluation-suite-band p,
+.evaluation-launcher p {
+  color: #667085;
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.evaluation-suite-band > span {
+  align-items: center;
+  display: flex;
+  font-size: 12px;
+  font-weight: 700;
+  gap: 5px;
+}
+
+.evaluation-launcher {
+  align-items: end;
+  border-bottom: 1px solid #dfe4eb;
+  border-top: 1px solid #dfe4eb;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(340px, 1.7fr) 80px auto;
+  margin-bottom: 22px;
+  padding: 18px 0;
+}
+
+.evaluation-launcher h2 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.evaluation-launcher fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.evaluation-launcher legend,
+.evaluation-case-count {
+  color: #596579;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 7px;
+}
+
+.evaluation-variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.evaluation-variants label {
+  align-items: center;
+  border: 1px solid #d8dee7;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  gap: 7px;
+  min-height: 42px;
+  padding: 5px 8px;
+}
+
+.evaluation-variants label:has(input:checked) {
+  background: #eef7f5;
+  border-color: #79b9ae;
+}
+
+.evaluation-variants span {
+  display: grid;
+}
+
+.evaluation-variants strong {
+  color: #344054;
+  font-size: 11px;
+}
+
+.evaluation-variants small {
+  color: #788295;
+  font-size: 9px;
+}
+
+.evaluation-case-count {
+  display: grid;
+  gap: 6px;
+}
+
+.evaluation-case-count input {
+  border: 1px solid #cbd2dd;
+  border-radius: 6px;
+  min-height: 40px;
+  padding: 0 8px;
+  width: 74px;
+}
+
+.evaluation-workspace {
+  border: 1px solid #d8dee7;
+  border-radius: 7px;
+  display: grid;
+  grid-template-columns: minmax(320px, 0.8fr) minmax(0, 1.2fr);
+  min-height: 490px;
+  overflow: hidden;
+}
+
+.evaluation-workspace .evaluation-grid {
+  background: #f8fafb;
+  border-right: 1px solid #e1e6ed;
+  display: block;
+  max-height: 620px;
+  overflow: auto;
+}
+
+.evaluation-row {
+  background: transparent;
+  border-left: 3px solid transparent;
+  border-right: 0;
+  border-top: 0;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+
+.evaluation-row-active {
+  background: #eef7f5;
+  border-left-color: #087f70;
+}
+
+.evaluation-detail {
+  min-width: 0;
+  padding: 22px;
+}
+
+.evaluation-detail-heading {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.evaluation-detail-heading h2 {
+  font-size: 22px;
+  margin: 3px 0 0;
+  text-transform: capitalize;
+}
+
+.evaluation-detail-heading > svg {
+  color: #087f70;
+}
+
+.evaluation-metrics {
+  display: grid;
+  gap: 1px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 20px 0;
+}
+
+.evaluation-metrics div {
+  background: #f5f7f9;
+  display: grid;
+  gap: 6px;
+  min-height: 76px;
+  padding: 12px;
+}
+
+.evaluation-metrics span {
+  color: #667085;
+  font-size: 11px;
+}
+
+.evaluation-metrics strong {
+  color: #172033;
+  font-size: 18px;
+}
+
+.evaluation-detail > h3 {
+  font-size: 14px;
+  margin: 22px 0 8px;
+}
+
+.evaluation-results {
+  border-top: 1px solid #e1e6ed;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.evaluation-results > div {
+  align-items: center;
+  border-bottom: 1px solid #e8ecf1;
+  display: grid;
+  font-size: 11px;
+  gap: 8px;
+  grid-template-columns: 10px minmax(0, 1fr) 90px 60px;
+  min-height: 38px;
+}
+
+.evaluation-results time {
+  color: #788295;
+  text-align: right;
+}
+
 .evaluation-row p {
   margin: 5px 0 0;
   color: #788295;
@@ -2041,6 +2255,25 @@ select:focus-visible {
   .evaluation-row {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
+  }
+
+  .evaluation-launcher,
+  .evaluation-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .evaluation-launcher {
+    align-items: stretch;
+  }
+
+  .evaluation-workspace .evaluation-grid {
+    border-bottom: 1px solid #e1e6ed;
+    border-right: 0;
+    max-height: 280px;
+  }
+
+  .evaluation-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .evaluation-row time {

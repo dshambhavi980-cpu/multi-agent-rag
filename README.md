@@ -143,6 +143,17 @@ Phase 11 implements bounded production observability and replay:
   active runs, and trace quota.
 - Daily Supabase retention enforcement with a 30-day and newest-50-trace bound.
 
+Phase 12 implements measurable evaluation and release regression:
+
+- A versioned 50-case reviewed suite spanning lookup, synthesis, conflicting
+  evidence, missing evidence, and adversarial prompt injection.
+- Keyword-only, dense-only, hybrid, simple-RAG, and agentic comparisons.
+- Retrieval, citation, groundedness, answer-coverage, safety, latency, token,
+  model-call, and failure metrics.
+- Durable Supabase results plus a workspace release-gate dashboard.
+- A deterministic, provider-free CI regression that blocks citation, safety,
+  tenant-isolation, and hybrid-ranking regressions.
+
 ## Quick start
 
 Requirements: Python 3.12+, Node.js 24+, and optionally Docker.
@@ -199,6 +210,7 @@ npm run check:web
 - [`docs/phase-5-acceptance.md`](docs/phase-5-acceptance.md)
 - [`docs/phase-6-acceptance.md`](docs/phase-6-acceptance.md)
 - [`docs/phase-7-acceptance.md`](docs/phase-7-acceptance.md)
+- [`docs/phase-12-acceptance.md`](docs/phase-12-acceptance.md)
 - [`docs/development.md`](docs/development.md)
 - [`contracts/openapi.yaml`](contracts/openapi.yaml)
 - [`contracts/events.asyncapi.yaml`](contracts/events.asyncapi.yaml)

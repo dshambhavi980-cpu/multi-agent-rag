@@ -186,9 +186,7 @@ async def test_product_read_models_use_workspace_scoped_rpcs() -> None:
     instance = service(admin, retrieval_response(), Generation())
 
     runs = await instance.list_runs(workspace_id=WORKSPACE_ID, actor_id=USER_ID, limit=20)
-    trace = await instance.get_run_trace(
-        workspace_id=WORKSPACE_ID, actor_id=USER_ID, run_id=RUN_ID
-    )
+    trace = await instance.get_run_trace(workspace_id=WORKSPACE_ID, actor_id=USER_ID, run_id=RUN_ID)
     usage = await instance.workspace_usage(workspace_id=WORKSPACE_ID, actor_id=USER_ID)
 
     assert runs.items[0].question == "How is the token rotated?"
@@ -405,9 +403,7 @@ async def test_service_conversation_run_and_event_snapshots() -> None:
     assert events[0]["sequence"] == 1
     assert simple.status == "completed"
     assert agentic.status == "completed"
-    modes = [
-        payload["p_mode"] for name, payload in admin.calls if name == "start_rag_run"
-    ]
+    modes = [payload["p_mode"] for name, payload in admin.calls if name == "start_rag_run"]
     assert modes == ["simple", "agentic"]
 
 

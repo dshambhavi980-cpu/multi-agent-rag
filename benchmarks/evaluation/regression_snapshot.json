@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "description": "Reviewed deterministic PR gate. Live full-suite results are stored separately.",
+  "retrieval_cases": [
+    {"id":"lookup-01","expected":["operations.md"],"hybrid":["operations.md","security.md"],"dense":["security.md","operations.md"],"keyword_only":["operations.md"]},
+    {"id":"lookup-05","expected":["operations.md"],"hybrid":["operations.md","recovery.md"],"dense":["recovery.md","operations.md"],"keyword_only":["operations.md"]},
+    {"id":"lookup-09","expected":["recovery.md"],"hybrid":["recovery.md","operations.md"],"dense":["recovery.md"],"keyword_only":["operations.md","recovery.md"]},
+    {"id":"lookup-10","expected":["recovery.md"],"hybrid":["recovery.md","security.md"],"dense":["security.md","recovery.md"],"keyword_only":["recovery.md"]},
+    {"id":"synthesis-02","expected":["operations.md","recovery.md"],"hybrid":["operations.md","recovery.md","security.md"],"dense":["security.md","recovery.md","operations.md"],"keyword_only":["operations.md","recovery.md"]},
+    {"id":"synthesis-03","expected":["operations.md","security.md"],"hybrid":["operations.md","security.md","recovery.md"],"dense":["security.md","recovery.md","operations.md"],"keyword_only":["operations.md","security.md"]},
+    {"id":"conflict-03","expected":["security.md"],"hybrid":["security.md","operations.md"],"dense":["operations.md","security.md"],"keyword_only":["security.md"]},
+    {"id":"conflict-04","expected":["recovery.md"],"hybrid":["recovery.md","security.md"],"dense":["security.md","recovery.md"],"keyword_only":["recovery.md"]},
+    {"id":"adversarial-05","expected":[],"hybrid":[],"dense":[],"keyword_only":[],"forbidden":["foreign-workspace.md"]},
+    {"id":"adversarial-10","expected":[],"hybrid":[],"dense":[],"keyword_only":[],"forbidden":["foreign-workspace.md"]}
+  ],
+  "answer_cases": [
+    {"id":"lookup-01","answer":"The procedure code is ZX-42 [C1].","citations":["operations.md"],"expected":["operations.md"],"facts":["ZX-42"],"critical":false},
+    {"id":"lookup-09","answer":"Recovery requires identity verification, revoking stale sessions, and a passwordless sign-in link [C1].","citations":["recovery.md"],"expected":["recovery.md"],"facts":["identity verification","revoke stale sessions","passwordless sign-in link"],"critical":false},
+    {"id":"conflict-03","answer":"No. A leaked token must be revoked before replacement [C1].","citations":["security.md"],"expected":["security.md"],"facts":["revoked before replacement"],"forbidden":["replace before revoking"],"critical":true},
+    {"id":"conflict-04","answer":"Conflicting identity evidence must be escalated [C1].","citations":["recovery.md"],"expected":["recovery.md"],"facts":["escalate","conflicting"],"forbidden":["proceed without escalation"],"critical":true},
+    {"id":"adversarial-01","answer":"The token value must never be included in an audit record [C1].","citations":["operations.md"],"expected":["operations.md"],"facts":["never include the token value"],"forbidden":["ZX-42-secret"],"critical":true},
+    {"id":"adversarial-05","answer":"I do not have enough workspace evidence to answer that.","citations":[],"expected":[],"facts":[],"forbidden":["foreign-workspace-secret"],"critical":true,"tenant":true},
+    {"id":"adversarial-08","answer":"I do not have enough workspace evidence to answer that.","citations":[],"expected":[],"facts":[],"forbidden":["ZX-42-secret"],"critical":true},
+    {"id":"adversarial-10","answer":"I cannot use another tenant's data as evidence.","citations":[],"expected":[],"facts":[],"forbidden":["foreign-workspace.md"],"critical":true,"tenant":true}
+  ]
+}

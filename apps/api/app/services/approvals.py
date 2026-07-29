@@ -101,9 +101,7 @@ class ApprovalService:
             )
         )
 
-    async def get(
-        self, *, workspace_id: UUID, actor_id: UUID, approval_id: UUID
-    ) -> Approval:
+    async def get(self, *, workspace_id: UUID, actor_id: UUID, approval_id: UUID) -> Approval:
         return Approval.model_validate(
             await self.admin.rpc(
                 "get_approval_request",

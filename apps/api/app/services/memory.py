@@ -145,8 +145,7 @@ class MemoryService:
         summary = str(data.get("summary") or "").strip()
         if summary:
             sections.append(
-                "Earlier conversation summary:\n"
-                + summary[: self.config.summary_char_budget]
+                "Earlier conversation summary:\n" + summary[: self.config.summary_char_budget]
             )
 
         memories: list[str] = []

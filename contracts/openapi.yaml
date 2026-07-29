@@ -901,6 +901,25 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
+  /v1/evaluations/suite:
+    get:
+      tags: [Evaluations]
+      operationId: getEvaluationSuite
+      summary: Get the reviewed evaluation suite and release thresholds
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+      responses:
+        "200":
+          description: Reviewed evaluation suite summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluationSuiteSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /v1/evaluations:
     get:
       tags: [Evaluations]
@@ -2229,17 +2248,18 @@ components:
     CreateEvaluationRequest:
       type: object
       additionalProperties: false
-      required: [suite, variants]
       properties:
         suite:
           type: string
           minLength: 1
           maxLength: 100
+          default: phase12-reviewed-v1
         variants:
           type: array
           minItems: 1
-          maxItems: 6
+          maxItems: 5
           uniqueItems: true
+          default: [keyword_only, dense_only, hybrid]
           items:
             type: string
             enum:
@@ -2248,7 +2268,6 @@ components:
               - hybrid
               - simple_rag
               - agentic
-              - reviewer_enabled
         max_cases:
           type: integer
           minimum: 1
@@ -2262,9 +2281,14 @@ components:
         - id
         - workspace_id
         - suite
+        - suite_version
         - variants
         - status
         - case_count
+        - metrics
+        - gate_passed
+        - gate_failures
+        - results
         - created_at
       properties:
         id:
@@ -2275,6 +2299,9 @@ components:
           format: uuid
         suite:
           type: string
+        suite_version:
+          type: integer
+          minimum: 1
         variants:
           type: array
           items:
@@ -2290,12 +2317,115 @@ components:
           type: object
           additionalProperties:
             type: number
+        gate_passed:
+          type: [boolean, "null"]
+        gate_failures:
+          type: array
+          items:
+            type: string
+        error:
+          type: [string, "null"]
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/EvaluationResult"
         created_at:
           type: string
           format: date-time
         completed_at:
           type: [string, "null"]
           format: date-time
+
+    EvaluationResult:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - case_id
+        - category
+        - variant
+        - status
+        - metrics
+        - latency_ms
+        - model_calls
+        - prompt_tokens
+        - output_tokens
+        - created_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        case_id:
+          type: string
+        category:
+          type: string
+          enum:
+            - lookup
+            - synthesis
+            - conflicting_evidence
+            - missing_evidence
+            - prompt_injection
+        variant:
+          type: string
+          enum: [keyword_only, dense_only, hybrid, simple_rag, agentic]
+        status:
+          type: string
+          enum: [passed, failed, error]
+        metrics:
+          type: object
+          additionalProperties:
+            type: number
+        latency_ms:
+          type: integer
+          minimum: 0
+        model_calls:
+          type: integer
+          minimum: 0
+        prompt_tokens:
+          type: integer
+          minimum: 0
+        output_tokens:
+          type: integer
+          minimum: 0
+        failure_code:
+          type: [string, "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    EvaluationSuiteSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - suite
+        - version
+        - reviewed_by
+        - reviewed_at
+        - case_count
+        - categories
+        - thresholds
+      properties:
+        suite:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        reviewed_by:
+          type: string
+        reviewed_at:
+          type: string
+          format: date
+        case_count:
+          type: integer
+          minimum: 50
+        categories:
+          type: object
+          additionalProperties:
+            type: integer
+        thresholds:
+          type: object
+          additionalProperties:
+            type: number
 
     EvaluationPage:
       type: object

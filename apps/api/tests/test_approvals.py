@@ -112,17 +112,18 @@ async def test_policy_allows_grounded_low_risk_output_and_decisions_resume() -> 
         step_count=6,
     )
 
-    assert await service.maybe_pause(
-        state=state("Compare two internal policies."),
-        result=result,
-        citations=[],
-    ) is None
+    assert (
+        await service.maybe_pause(
+            state=state("Compare two internal policies."),
+            result=result,
+            citations=[],
+        )
+        is None
+    )
     page = await service.list(
         workspace_id=WORKSPACE_ID, actor_id=USER_ID, status="pending", limit=25
     )
-    item = await service.get(
-        workspace_id=WORKSPACE_ID, actor_id=USER_ID, approval_id=APPROVAL_ID
-    )
+    item = await service.get(workspace_id=WORKSPACE_ID, actor_id=USER_ID, approval_id=APPROVAL_ID)
     decided, run_id, resume = await service.decide(
         workspace_id=WORKSPACE_ID,
         actor_id=USER_ID,

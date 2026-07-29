@@ -14,6 +14,7 @@ from app.api.middleware import RequestContextMiddleware
 from app.api.routes.approvals import router as approvals_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.documents import router as documents_router
+from app.api.routes.evaluations import router as evaluations_router
 from app.api.routes.memory import router as memory_router
 from app.api.routes.rag import router as rag_router
 from app.api.routes.retrieval import router as retrieval_router
@@ -35,6 +36,7 @@ from app.infrastructure.supabase.auth import SupabaseJwtVerifier, UnavailableJwt
 from app.infrastructure.supabase.data import SupabaseDataClient, UnavailableDataClient
 from app.infrastructure.supabase.storage import SupabaseStorageClient, UnavailableStorageClient
 from app.services.approvals import ApprovalConfig, ApprovalService
+from app.services.evaluations import EvaluationService
 from app.services.ingestion_worker import IngestionWorker, WorkerConfig
 from app.services.memory import MemoryConfig, MemoryService
 from app.services.rag import GroundedRagService, RagConfig
@@ -141,6 +143,7 @@ def _install_routes(application: FastAPI) -> None:
     application.include_router(approvals_router)
     application.include_router(auth_router)
     application.include_router(documents_router)
+    application.include_router(evaluations_router)
     application.include_router(retrieval_router)
     application.include_router(rag_router)
     application.include_router(memory_router)
@@ -232,6 +235,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
             application.state.memory,
             application.state.approvals,
         )
+        application.state.evaluations = EvaluationService(
+            admin=application.state.supabase_admin,
+            retrieval=application.state.retrieval,
+            rag=application.state.rag,
+        )
         if (
             resolved_settings.ingestion_worker_enabled
             and isinstance(application.state.supabase_admin, SupabaseAdminClient)
@@ -264,6 +272,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
         yield
         if worker:
             await worker.stop()
+        await application.state.evaluations.aclose()
         await application.state.rag.aclose()
         await application.state.auth_verifier.aclose()
         await application.state.supabase_data.aclose()
