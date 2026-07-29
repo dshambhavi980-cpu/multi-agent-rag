@@ -14,6 +14,7 @@ import {
 import { useEffect, useState } from "react";
 
 import { AuthGate } from "../features/auth/AuthGate";
+import { ApprovalsPage } from "../features/approvals/ApprovalsPage";
 import { SystemOverview } from "../features/system/SystemOverview";
 import { DocumentsPage } from "../features/documents/DocumentsPage";
 import { MemoryPage } from "../features/memory/MemoryPage";
@@ -76,6 +77,7 @@ function AuthenticatedApp() {
   const routeContent =
     pathname === "/" ? <SystemOverview /> :
     pathname === "/documents" ? <DocumentsPage /> :
+    pathname === "/approvals" ? <ApprovalsPage /> :
     pathname === "/memory" ? <MemoryPage /> :
     <Placeholder title={routeTitles[pathname] ?? "Not found"} />;
 

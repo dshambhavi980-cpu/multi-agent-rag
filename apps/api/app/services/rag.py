@@ -24,6 +24,7 @@ from app.models.rag import (
     RunAccepted,
 )
 from app.models.retrieval import RetrievalFilters, RetrievalRequest, RetrievalResponse
+from app.services.approvals import ApprovalService
 from app.services.memory import MemoryService
 from app.services.retrieval import HybridRetrievalService
 
@@ -139,6 +140,7 @@ class GroundedRagService:
         config: RagConfig,
         orchestrator: AgentOrchestrator | None = None,
         memory: MemoryService | None = None,
+        approvals: ApprovalService | None = None,
     ) -> None:
         self.admin = admin
         self.retrieval = retrieval
@@ -146,6 +148,7 @@ class GroundedRagService:
         self.config = config
         self.orchestrator = orchestrator
         self.memory = memory
+        self.approvals = approvals
         self._tasks: dict[UUID, asyncio.Task[None]] = {}
 
     async def aclose(self) -> None:
@@ -357,6 +360,20 @@ class GroundedRagService:
             task.add_done_callback(lambda _: self._tasks.pop(run_id, None))
         return await self.get_run(workspace_id=workspace_id, actor_id=actor_id, run_id=run_id)
 
+    async def resume_from_review(self, *, run_id: UUID, workspace_id: UUID) -> None:
+        if self.orchestrator is None or run_id in self._tasks:
+            return
+        checkpoint = await self.orchestrator.load_checkpoint(run_id, workspace_id)
+        if checkpoint is None:
+            return
+        checkpoint["started_at"] = time()
+        task = asyncio.create_task(
+            self._execute_agentic_state(checkpoint),
+            name=f"agent-review-resume-{run_id}",
+        )
+        self._tasks[run_id] = task
+        task.add_done_callback(lambda _: self._tasks.pop(run_id, None))
+
     async def _execute_agentic(  # noqa: PLR0913
         self,
         *,
@@ -435,6 +452,24 @@ class GroundedRagService:
                 await self._event(
                     run_id, workspace_id, "citations.available", {"citations": citations}
                 )
+            if self.approvals is not None:
+                approval = await self.approvals.maybe_pause(
+                    state=state,
+                    result=result,
+                    citations=citations,
+                )
+                if approval is not None:
+                    await self._event(
+                        run_id,
+                        workspace_id,
+                        "run.awaiting_approval",
+                        {
+                            "approval_id": str(approval.id),
+                            "risk_level": approval.risk_level,
+                            "reasons": approval.reasons,
+                        },
+                    )
+                    return
             await self._event(run_id, workspace_id, "answer.delta", {"delta": result.content})
             timings = {"total_ms": round((perf_counter() - started) * 1000, 3)}
             completed = cast(

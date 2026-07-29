@@ -46,6 +46,7 @@ class AgentState(TypedDict):
     coverage: NotRequired[float]
     review_score: NotRequired[float]
     answer_status: NotRequired[str]
+    reviewer_feedback: NotRequired[str]
 
 
 class AgentResult(BaseModel):

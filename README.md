@@ -7,9 +7,8 @@ This repository is being built from the phased implementation blueprint in
 
 The current frontend preview is available at
 [DocPilot on Vercel](https://docpilot-rag-assistant.vercel.app). It includes the
-Supabase authentication boundary. Deploy the FastAPI service and set
-`VITE_API_BASE_URL` to enable the document, retrieval, and chat API workflows
-from the public site.
+guest Supabase session, connected FastAPI service, document workflows, memory,
+and human review queue.
 
 ## Current status
 
@@ -103,6 +102,20 @@ Phase 8 implements attributable, bounded memory:
   or document citations.
 - Users can inspect and delete memory from the workspace Memory view.
 - Expired and soft-deleted records are purged by a daily PostgreSQL cron job.
+
+Phase 9 implements durable human-in-the-loop controls:
+
+- Agentic output pauses before publication when confidence, citation coverage,
+  or sensitive-intent policy triggers fire.
+- Approval requests are assigned, expire after a bounded window, and escalate
+  while pending.
+- Authorized reviewers can approve, edit, reject, or request a revision from
+  the responsive Review queue.
+- Approval and rejection complete in one database transaction; revision rewinds
+  the durable LangGraph checkpoint with reviewer feedback.
+- Decision keys and database constraints prevent duplicate execution.
+- Every decision retains reviewer identity, comment, previous state, final
+  state, and timestamp in an immutable audit record.
 
 ## Quick start
 

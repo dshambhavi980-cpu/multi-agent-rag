@@ -11,6 +11,7 @@ from app.agents.orchestrator import AgentConfig, AgentOrchestrator
 from app.agents.tools import ToolRegistry
 from app.api.errors import install_error_handlers
 from app.api.middleware import RequestContextMiddleware
+from app.api.routes.approvals import router as approvals_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.documents import router as documents_router
 from app.api.routes.memory import router as memory_router
@@ -33,6 +34,7 @@ from app.infrastructure.supabase.admin import SupabaseAdminClient, UnavailableAd
 from app.infrastructure.supabase.auth import SupabaseJwtVerifier, UnavailableJwtVerifier
 from app.infrastructure.supabase.data import SupabaseDataClient, UnavailableDataClient
 from app.infrastructure.supabase.storage import SupabaseStorageClient, UnavailableStorageClient
+from app.services.approvals import ApprovalConfig, ApprovalService
 from app.services.ingestion_worker import IngestionWorker, WorkerConfig
 from app.services.memory import MemoryConfig, MemoryService
 from app.services.rag import GroundedRagService, RagConfig
@@ -93,12 +95,13 @@ def _build_generation_client(
     )
 
 
-def _build_rag_service(
+def _build_rag_service(  # noqa: PLR0913, PLR0917
     settings: Settings,
     admin: Any,
     retrieval: HybridRetrievalService,
     generation: Any,
     memory: MemoryService,
+    approvals: ApprovalService,
 ) -> GroundedRagService:
     orchestrator = AgentOrchestrator(
         admin=admin,
@@ -121,6 +124,7 @@ def _build_rag_service(
         generation=generation,
         orchestrator=orchestrator,
         memory=memory,
+        approvals=approvals,
         config=RagConfig(
             evidence_limit=settings.rag_evidence_limit,
             candidate_count=settings.rag_candidate_count,
@@ -134,6 +138,7 @@ def _build_rag_service(
 
 def _install_routes(application: FastAPI) -> None:
     application.include_router(system_router)
+    application.include_router(approvals_router)
     application.include_router(auth_router)
     application.include_router(documents_router)
     application.include_router(retrieval_router)
@@ -209,12 +214,23 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
                 cleanup_interval_seconds=resolved_settings.memory_cleanup_interval_seconds,
             ),
         )
+        application.state.approvals = ApprovalService(
+            admin=application.state.supabase_admin,
+            config=ApprovalConfig(
+                confidence_threshold=resolved_settings.approval_confidence_threshold,
+                citation_coverage_threshold=(
+                    resolved_settings.approval_citation_coverage_threshold
+                ),
+                expires_hours=resolved_settings.approval_expires_hours,
+            ),
+        )
         application.state.rag = _build_rag_service(
             resolved_settings,
             application.state.supabase_admin,
             application.state.retrieval,
             application.state.generation,
             application.state.memory,
+            application.state.approvals,
         )
         if (
             resolved_settings.ingestion_worker_enabled

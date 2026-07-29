@@ -8,6 +8,7 @@ AnswerStatus = Literal["grounded", "insufficient_evidence", "failed"]
 RunStatus = Literal[
     "accepted",
     "running",
+    "awaiting_approval",
     "cancelling",
     "cancelled",
     "completed",
@@ -103,6 +104,7 @@ class Run(BaseModel):
     confidence: float | None = Field(default=None, ge=0, le=1)
     answer_status: AnswerStatus | None = None
     output_message_id: UUID | None = None
+    approval_id: UUID | None = None
     error: dict[str, object] | None = None
     created_at: datetime
     updated_at: datetime

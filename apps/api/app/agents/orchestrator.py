@@ -217,6 +217,7 @@ class AgentOrchestrator:
             prompt = (
                 f"Question:\n{current['question']}\n\nEvidence:\n{current['context']}\n\n"
                 f"Memory context:\n{current.get('memory_context') or 'None'}\n\n"
+                f"Reviewer feedback:\n{current.get('reviewer_feedback') or 'None'}\n\n"
                 "Write a concise synthesis that addresses each part of the question."
             )
             chunks: list[str] = []
