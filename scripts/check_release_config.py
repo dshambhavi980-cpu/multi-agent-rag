@@ -40,8 +40,15 @@ def main() -> None:
         vercel["rewrites"][0]["destination"] == "/index.html",
         "Vercel SPA rewrite missing.",
     )
-    header_keys = {item["key"] for item in vercel["headers"][0]["headers"]}
+    header_values = {
+        item["key"]: item["value"] for item in vercel["headers"][0]["headers"]
+    }
+    header_keys = set(header_values)
     require("Content-Security-Policy" in header_keys, "Vercel CSP is missing.")
+    require(
+        "frame-src 'self' blob:" in header_values["Content-Security-Policy"],
+        "Vercel CSP must allow protected blob document previews.",
+    )
 
     wrangler = tomllib.loads(
         (ROOT / "apps/web/wrangler.toml").read_text(encoding="utf-8")
@@ -55,6 +62,10 @@ def main() -> None:
     cloudflare_headers = (ROOT / "apps/web/public/_headers").read_text(encoding="utf-8")
     require(
         "Content-Security-Policy" in cloudflare_headers, "Cloudflare CSP is missing."
+    )
+    require(
+        "frame-src 'self' blob:" in cloudflare_headers,
+        "Cloudflare CSP must allow protected blob document previews.",
     )
 
     supabase = tomllib.loads(
