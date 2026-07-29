@@ -5,6 +5,7 @@ import {
   Database,
   FileStack,
   Gauge,
+  HeartPulse,
   Menu,
   MessageSquareText,
   Settings,
@@ -41,6 +42,11 @@ const MemoryPage = lazy(() =>
     default: module.MemoryPage,
   })),
 );
+const ObservabilityPage = lazy(() =>
+  import("../features/observability/ObservabilityPage").then((module) => ({
+    default: module.ObservabilityPage,
+  })),
+);
 const RunsPage = lazy(() =>
   import("../features/runs/RunsPage").then((module) => ({ default: module.RunsPage })),
 );
@@ -55,6 +61,7 @@ const navigation = [
   { label: "Chat", icon: MessageSquareText, path: "/chat" },
   { label: "Documents", icon: FileStack, path: "/documents" },
   { label: "Agent runs", icon: Bot, path: "/runs" },
+  { label: "Operations", icon: HeartPulse, path: "/operations" },
   { label: "Review queue", icon: ShieldCheck, path: "/approvals" },
   { label: "Evaluations", icon: ChartNoAxesCombined, path: "/evaluations" },
   { label: "Memory", icon: Database, path: "/memory" },
@@ -64,6 +71,7 @@ const routeTitles: Record<string, string> = {
   "/chat": "Chat",
   "/documents": "Documents",
   "/runs": "Agent runs",
+  "/operations": "Operations",
   "/approvals": "Review queue",
   "/evaluations": "Evaluations",
   "/memory": "Memory",
@@ -108,6 +116,7 @@ function AuthenticatedApp() {
     pathname === "/chat" ? <ChatPage /> :
     pathname === "/documents" ? <DocumentsPage /> :
     pathname === "/runs" ? <RunsPage /> :
+    pathname === "/operations" ? <ObservabilityPage /> :
     pathname === "/approvals" ? <ApprovalsPage /> :
     pathname === "/evaluations" ? <EvaluationsPage /> :
     pathname === "/memory" ? <MemoryPage /> :

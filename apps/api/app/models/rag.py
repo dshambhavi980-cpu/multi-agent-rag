@@ -154,6 +154,73 @@ class RunTrace(BaseModel):
     tool_calls: list[ToolCall]
 
 
+class ReplayRunRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    mode: Literal["exact_snapshot", "current_configuration"]
+    reason: str = Field(min_length=1, max_length=500)
+
+
+class TraceEvidence(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    citation_id: str
+    document_id: UUID
+    label: str
+    page: int | None = None
+    section: str | None = None
+    quote: str
+    semantic_score: float | None = None
+    sparse_rank: int | None = None
+    rrf_score: float
+
+
+class OperationalEvent(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    event_type: str
+    occurred_at: datetime
+    latency_ms: float | None = None
+    severity: Literal["info", "warning", "error"]
+    attributes: dict[str, object]
+
+
+class ObservabilityTrace(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: UUID | None = None
+    trace_id: UUID
+    run_id: UUID
+    model: str
+    prompt_version: str
+    timings: dict[str, float]
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+    token_usage_source: Literal["provider", "estimated"] | None = None
+    replayed_from_run_id: UUID | None = None
+    replay_mode: Literal["exact_snapshot", "current_configuration"] | None = None
+    error: dict[str, object] | None = None
+    evidence: list[TraceEvidence]
+    events: list[OperationalEvent]
+
+
+class WorkspaceObservability(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    window_hours: int = Field(ge=1)
+    total_runs: int = Field(ge=0)
+    successful_runs: int = Field(ge=0)
+    failed_runs: int = Field(ge=0)
+    success_rate: float = Field(ge=0, le=1)
+    p95_latency_ms: float = Field(ge=0)
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    active_runs: int = Field(ge=0)
+    trace_count: int = Field(ge=0)
+    trace_limit: int = Field(ge=1)
+    retention_days: int = Field(ge=1)
+
+
 class WorkspaceUsage(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from time import perf_counter, time
-from typing import Any, Protocol, cast
+from typing import Any, Literal, Protocol, cast
 from uuid import UUID, uuid4
 
 from app.agents.models import AgentState
@@ -20,10 +20,13 @@ from app.models.rag import (
     ConversationDetail,
     ConversationPage,
     CreateMessageRequest,
+    ObservabilityTrace,
+    ReplayRunRequest,
     Run,
     RunAccepted,
     RunPage,
     RunTrace,
+    WorkspaceObservability,
     WorkspaceUsage,
 )
 from app.models.retrieval import RetrievalFilters, RetrievalRequest, RetrievalResponse
@@ -240,6 +243,14 @@ class GroundedRagService:
                 },
             )
         )
+        await self.admin.rpc(
+            "attach_rag_run_correlation",
+            {
+                "p_run_id": str(accepted.run_id),
+                "p_workspace_id": str(workspace_id),
+                "p_request_id": str(request_id),
+            },
+        )
         if accepted.status == "accepted" and accepted.run_id not in self._tasks:
             operation = (
                 self._execute_agentic(
@@ -268,6 +279,122 @@ class GroundedRagService:
             task.add_done_callback(lambda _: self._tasks.pop(accepted.run_id, None))
         return accepted
 
+    async def replay_run(  # noqa: PLR0913
+        self,
+        *,
+        workspace_id: UUID,
+        actor_id: UUID,
+        source_run_id: UUID,
+        request_id: UUID,
+        idempotency_key: str,
+        body: ReplayRunRequest,
+    ) -> RunAccepted:
+        snapshot = cast(
+            dict[str, Any],
+            await self.admin.rpc(
+                "get_rag_replay_snapshot",
+                {
+                    "p_workspace_id": str(workspace_id),
+                    "p_actor_id": str(actor_id),
+                    "p_run_id": str(source_run_id),
+                },
+            ),
+        )
+        replay_body = CreateMessageRequest(
+            content=str(snapshot["question"]),
+            document_ids=snapshot.get("document_ids"),
+            force_mode=(
+                cast(Literal["simple", "agentic"], snapshot["mode"])
+                if body.mode == "exact_snapshot"
+                else "auto"
+            ),
+        )
+        decision = route_request(replay_body)
+        snapshot_prompt_version = (
+            AGENT_PROMPT_VERSION if snapshot["mode"] == "agentic" else PROMPT_VERSION
+        )
+        prompt_version = (
+            str(snapshot["prompt_version"]) if body.mode == "exact_snapshot" else PROMPT_VERSION
+        )
+        model = str(snapshot["model"]) if body.mode == "exact_snapshot" else self.generation.model
+        if body.mode == "exact_snapshot" and (
+            model != self.generation.model or prompt_version != snapshot_prompt_version
+        ):
+            raise ApplicationError(
+                "REPLAY_SNAPSHOT_UNAVAILABLE",
+                "Exact replay is unavailable",
+                (
+                    "The stored model or prompt version is no longer available. "
+                    "Use current configuration."
+                ),
+                status=409,
+            )
+        accepted = RunAccepted.model_validate(
+            await self.admin.rpc(
+                "start_rag_run",
+                {
+                    "p_workspace_id": str(workspace_id),
+                    "p_actor_id": str(actor_id),
+                    "p_conversation_id": str(snapshot["conversation_id"]),
+                    "p_content": replay_body.content,
+                    "p_document_ids": (
+                        [str(document_id) for document_id in replay_body.document_ids]
+                        if replay_body.document_ids
+                        else None
+                    ),
+                    "p_request_key": idempotency_key,
+                    "p_prompt_version": prompt_version,
+                    "p_model": model,
+                    "p_mode": decision.mode,
+                },
+            )
+        )
+        await self.admin.rpc(
+            "attach_rag_run_correlation",
+            {
+                "p_run_id": str(accepted.run_id),
+                "p_workspace_id": str(workspace_id),
+                "p_request_id": str(request_id),
+            },
+        )
+        await self.admin.rpc(
+            "mark_rag_run_replay",
+            {
+                "p_run_id": str(accepted.run_id),
+                "p_workspace_id": str(workspace_id),
+                "p_source_run_id": str(source_run_id),
+                "p_replay_mode": body.mode,
+                "p_reason": body.reason,
+            },
+        )
+        if accepted.status == "accepted" and accepted.run_id not in self._tasks:
+            operation = (
+                self._execute_agentic(
+                    run_id=accepted.run_id,
+                    workspace_id=workspace_id,
+                    actor_id=actor_id,
+                    request_id=request_id,
+                    body=replay_body,
+                    route_reason=f"Replay ({body.mode}): {decision.reason}",
+                    conversation_id=UUID(str(snapshot["conversation_id"])),
+                    source_message_id=accepted.message_id,
+                )
+                if decision.mode == "agentic"
+                else self._execute(
+                    run_id=accepted.run_id,
+                    workspace_id=workspace_id,
+                    actor_id=actor_id,
+                    request_id=request_id,
+                    body=replay_body,
+                    conversation_id=UUID(str(snapshot["conversation_id"])),
+                    source_message_id=accepted.message_id,
+                )
+            )
+            task = asyncio.create_task(operation, name=f"rag-replay-{accepted.run_id}")
+            self._tasks[accepted.run_id] = task
+            task.add_done_callback(lambda _: self._tasks.pop(accepted.run_id, None))
+        return accepted
+
     async def get_run(self, *, workspace_id: UUID, actor_id: UUID, run_id: UUID) -> Run:
         return Run.model_validate(
             await self.admin.rpc(
@@ -280,9 +407,7 @@ class GroundedRagService:
             )
         )
 
-    async def list_runs(
-        self, *, workspace_id: UUID, actor_id: UUID, limit: int
-    ) -> RunPage:
+    async def list_runs(self, *, workspace_id: UUID, actor_id: UUID, limit: int) -> RunPage:
         return RunPage.model_validate(
             await self.admin.rpc(
                 "list_rag_runs",
@@ -294,9 +419,7 @@ class GroundedRagService:
             )
         )
 
-    async def get_run_trace(
-        self, *, workspace_id: UUID, actor_id: UUID, run_id: UUID
-    ) -> RunTrace:
+    async def get_run_trace(self, *, workspace_id: UUID, actor_id: UUID, run_id: UUID) -> RunTrace:
         return RunTrace.model_validate(
             await self.admin.rpc(
                 "get_agent_run_trace",
@@ -308,9 +431,55 @@ class GroundedRagService:
             )
         )
 
-    async def workspace_usage(
+    async def get_observability_trace(
+        self, *, workspace_id: UUID, actor_id: UUID, run_id: UUID
+    ) -> ObservabilityTrace:
+        return ObservabilityTrace.model_validate(
+            await self.admin.rpc(
+                "get_run_observability_trace",
+                {
+                    "p_workspace_id": str(workspace_id),
+                    "p_actor_id": str(actor_id),
+                    "p_run_id": str(run_id),
+                },
+            )
+        )
+
+    async def observability_summary(
         self, *, workspace_id: UUID, actor_id: UUID
-    ) -> WorkspaceUsage:
+    ) -> WorkspaceObservability:
+        return WorkspaceObservability.model_validate(
+            await self.admin.rpc(
+                "get_workspace_observability",
+                {
+                    "p_workspace_id": str(workspace_id),
+                    "p_actor_id": str(actor_id),
+                },
+            )
+        )
+
+    async def _record_telemetry(
+        self,
+        *,
+        run_id: UUID,
+        workspace_id: UUID,
+        question: str,
+        answer: str,
+        timings: dict[str, float],
+    ) -> None:
+        await self.admin.rpc(
+            "record_rag_run_telemetry",
+            {
+                "p_run_id": str(run_id),
+                "p_workspace_id": str(workspace_id),
+                "p_input_tokens": max(1, (len(question) + 3) // 4),
+                "p_output_tokens": max(1, (len(answer) + 3) // 4),
+                "p_token_usage_source": "estimated",
+                "p_timings": timings,
+            },
+        )
+
+    async def workspace_usage(self, *, workspace_id: UUID, actor_id: UUID) -> WorkspaceUsage:
         return WorkspaceUsage.model_validate(
             await self.admin.rpc(
                 "get_workspace_usage",
@@ -536,6 +705,13 @@ class GroundedRagService:
             )
             if completed.get("cancelled"):
                 return
+            await self._record_telemetry(
+                run_id=run_id,
+                workspace_id=workspace_id,
+                question=state["question"],
+                answer=result.content,
+                timings=timings,
+            )
             await self._event(
                 run_id,
                 workspace_id,
@@ -668,7 +844,7 @@ class GroundedRagService:
                 )
                 if self._insufficient(retrieval):
                     await self._complete_insufficient(
-                        run_id, workspace_id, retrieval, timings, started
+                        run_id, workspace_id, body.content, retrieval, timings, started
                     )
                     await self._maintain_memory(
                         workspace_id=workspace_id,
@@ -731,6 +907,13 @@ class GroundedRagService:
                         {"previous_status": "cancelling", "status": "cancelled"},
                     )
                     return
+                await self._record_telemetry(
+                    run_id=run_id,
+                    workspace_id=workspace_id,
+                    question=body.content,
+                    answer=answer.content,
+                    timings=timings,
+                )
                 await self._event(
                     run_id,
                     workspace_id,
@@ -903,10 +1086,11 @@ class GroundedRagService:
             review_score=review_score,
         )
 
-    async def _complete_insufficient(
+    async def _complete_insufficient(  # noqa: PLR0913, PLR0917
         self,
         run_id: UUID,
         workspace_id: UUID,
+        question: str,
         retrieval: RetrievalResponse,
         timings: dict[str, float],
         started: float,
@@ -931,6 +1115,13 @@ class GroundedRagService:
                     "p_timings": timings,
                 },
             ),
+        )
+        await self._record_telemetry(
+            run_id=run_id,
+            workspace_id=workspace_id,
+            question=question,
+            answer=INSUFFICIENT_ANSWER,
+            timings=timings,
         )
         await self._event(
             run_id,

@@ -15,11 +15,14 @@ from app.models.rag import (
     ConversationPage,
     CreateConversationRequest,
     CreateMessageRequest,
+    ObservabilityTrace,
     OperationAccepted,
+    ReplayRunRequest,
     Run,
     RunAccepted,
     RunPage,
     RunTrace,
+    WorkspaceObservability,
     WorkspaceUsage,
 )
 from app.services.rag import (
@@ -152,9 +155,7 @@ async def list_runs(
 ) -> RunPage:
     await require_workspace_access(workspace_id, request, auth)
     service = cast(GroundedRagService, request.app.state.rag)
-    return await service.list_runs(
-        workspace_id=workspace_id, actor_id=auth.user.id, limit=limit
-    )
+    return await service.list_runs(workspace_id=workspace_id, actor_id=auth.user.id, limit=limit)
 
 
 @router.get("/runs/{run_id}/trace", operation_id="getRunTrace", response_model=RunTrace)
@@ -171,6 +172,65 @@ async def get_run_trace(
     )
 
 
+@router.get(
+    "/runs/{run_id}/observability",
+    operation_id="getRunObservability",
+    response_model=ObservabilityTrace,
+)
+async def get_run_observability(
+    run_id: UUID,
+    request: Request,
+    workspace_id: WorkspaceHeader,
+    auth: AuthDependency,
+) -> ObservabilityTrace:
+    await require_workspace_access(workspace_id, request, auth)
+    service = cast(GroundedRagService, request.app.state.rag)
+    return await service.get_observability_trace(
+        workspace_id=workspace_id, actor_id=auth.user.id, run_id=run_id
+    )
+
+
+@router.get(
+    "/observability/summary",
+    operation_id="getWorkspaceObservability",
+    response_model=WorkspaceObservability,
+)
+async def get_workspace_observability(
+    request: Request,
+    workspace_id: WorkspaceHeader,
+    auth: AuthDependency,
+) -> WorkspaceObservability:
+    await require_workspace_access(workspace_id, request, auth)
+    service = cast(GroundedRagService, request.app.state.rag)
+    return await service.observability_summary(workspace_id=workspace_id, actor_id=auth.user.id)
+
+
+@router.post(
+    "/runs/{run_id}/replay",
+    operation_id="replayRun",
+    response_model=RunAccepted,
+    status_code=202,
+)
+async def replay_run(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    run_id: UUID,
+    body: ReplayRunRequest,
+    request: Request,
+    workspace_id: WorkspaceHeader,
+    idempotency_key: IdempotencyHeader,
+    auth: AuthDependency,
+) -> RunAccepted:
+    await require_workspace_access(workspace_id, request, auth)
+    service = cast(GroundedRagService, request.app.state.rag)
+    return await service.replay_run(
+        workspace_id=workspace_id,
+        actor_id=auth.user.id,
+        source_run_id=run_id,
+        request_id=request.state.request_id,
+        idempotency_key=idempotency_key,
+        body=body,
+    )
+
+
 @router.get("/workspace/usage", operation_id="getWorkspaceUsage", response_model=WorkspaceUsage)
 async def get_workspace_usage(
     request: Request,
@@ -179,9 +239,7 @@ async def get_workspace_usage(
 ) -> WorkspaceUsage:
     await require_workspace_access(workspace_id, request, auth)
     service = cast(GroundedRagService, request.app.state.rag)
-    return await service.workspace_usage(
-        workspace_id=workspace_id, actor_id=auth.user.id
-    )
+    return await service.workspace_usage(workspace_id=workspace_id, actor_id=auth.user.id)
 
 
 @router.get("/runs/{run_id}/events", operation_id="streamRunEvents")

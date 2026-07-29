@@ -1,11 +1,12 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Bot,
   CheckCircle2,
   CircleAlert,
   Clock3,
   RefreshCw,
+  RotateCcw,
   Search,
   Wrench,
 } from "lucide-react";
@@ -14,12 +15,17 @@ import { useMemo, useRef, useState } from "react";
 import { requestJson } from "../../api/client";
 import { useAuth } from "../auth/auth-context";
 import { useWorkspace } from "../workspaces/workspace-context";
-import type { RunPageResult, RunTrace } from "./runs.types";
+import type { ObservabilityTrace, RunPageResult, RunTrace } from "./runs.types";
 
 export function RunsPage() {
   const { session } = useAuth();
   const { activeWorkspace } = useWorkspace();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [replayMode, setReplayMode] = useState<"exact_snapshot" | "current_configuration">(
+    "current_configuration",
+  );
+  const [replayReason, setReplayReason] = useState("Investigate this run");
+  const queryClient = useQueryClient();
   const workspaceId = activeWorkspace?.id;
   const headers = {
     Authorization: `Bearer ${session?.access_token ?? ""}`,
@@ -50,6 +56,30 @@ export function RunsPage() {
     )
       ? 2_000
       : false,
+  });
+  const diagnostics = useQuery({
+    queryKey: ["run-observability", workspaceId, activeId],
+    enabled: Boolean(session && workspaceId && activeId),
+    queryFn: () =>
+      requestJson<ObservabilityTrace>(`/v1/runs/${activeId ?? ""}/observability`, {
+        headers,
+      }),
+    refetchInterval: ["accepted", "running"].includes(
+      runs.data?.items.find((run) => run.id === activeId)?.status ?? "",
+    )
+      ? 2_000
+      : false,
+  });
+  const replay = useMutation({
+    mutationFn: () =>
+      requestJson(`/v1/runs/${activeId ?? ""}/replay`, {
+        method: "POST",
+        headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+        body: JSON.stringify({ mode: replayMode, reason: replayReason.trim() }),
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["runs", workspaceId] });
+    },
   });
   const timeline = useMemo(
     () => [
@@ -158,6 +188,27 @@ export function RunsPage() {
                     <CircleAlert size={18} /> {selected.error.detail}
                   </div>
                 ) : null}
+                {diagnostics.data?.trace_id ? (
+                  <div className="trace-diagnostics">
+                    <dl className="trace-facts">
+                      <div><dt>Trace ID</dt><dd title={diagnostics.data.trace_id}>{diagnostics.data.trace_id.slice(0, 8)}</dd></div>
+                      <div><dt>Total latency</dt><dd>{Math.round(diagnostics.data.timings.total_ms ?? 0)} ms</dd></div>
+                      <div><dt>Tokens</dt><dd>{(diagnostics.data.input_tokens ?? 0) + (diagnostics.data.output_tokens ?? 0)}</dd></div>
+                      <div><dt>Evidence</dt><dd>{diagnostics.data.evidence.length}</dd></div>
+                    </dl>
+                    {diagnostics.data.evidence.length ? (
+                      <div className="trace-evidence">
+                        <h3>Retrieval evidence</h3>
+                        {diagnostics.data.evidence.map((item) => (
+                          <article key={item.citation_id}>
+                            <strong>{item.citation_id} · {item.label}</strong>
+                            <p>{item.quote}</p>
+                          </article>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <h3 className="timeline-title">Execution timeline</h3>
                 <div className="timeline-scroll" ref={scrollRef}>
                   {!timeline.length ? (
@@ -201,8 +252,62 @@ export function RunsPage() {
                   )}
                 </div>
                 <p className="trace-privacy">
-                  <Search size={14} /> Trace shows decisions and tool outcomes only.
+                  <Search size={14} /> Trace shows decisions and tool outcomes only. Secrets and
+                  full document content are excluded.
                 </p>
+                {["completed", "failed", "cancelled", "timed_out"].includes(selected.status) ? (
+                  <form
+                    className="replay-panel"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (replayReason.trim()) {
+                        replay.mutate();
+                      }
+                    }}
+                  >
+                    <div className="replay-heading">
+                      <h3><RotateCcw size={16} /> Replay run</h3>
+                      <div className="segmented-control" aria-label="Replay mode">
+                        <button
+                          type="button"
+                          aria-pressed={replayMode === "current_configuration"}
+                          onClick={() => {
+                            setReplayMode("current_configuration");
+                          }}
+                        >
+                          Current
+                        </button>
+                        <button
+                          type="button"
+                          aria-pressed={replayMode === "exact_snapshot"}
+                          onClick={() => {
+                            setReplayMode("exact_snapshot");
+                          }}
+                        >
+                          Exact
+                        </button>
+                      </div>
+                    </div>
+                    <label>
+                      Replay reason
+                      <input
+                        value={replayReason}
+                        maxLength={500}
+                        onChange={(event) => {
+                          setReplayReason(event.target.value);
+                        }}
+                      />
+                    </label>
+                    <button
+                      className="primary-button"
+                      type="submit"
+                      disabled={replay.isPending || !replayReason.trim()}
+                    >
+                      <RotateCcw size={16} /> {replay.isPending ? "Starting..." : "Start replay"}
+                    </button>
+                    {replay.isError ? <p className="field-error" role="alert">Replay could not be started.</p> : null}
+                  </form>
+                ) : null}
               </>
             ) : null}
           </div>

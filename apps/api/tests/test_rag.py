@@ -415,6 +415,8 @@ async def test_start_run_dispatches_simple_and_agentic_background_paths() -> Non
     class AcceptedAdmin(Admin):
         async def rpc(self, name: str, payload: dict[str, Any]) -> Any:
             self.calls.append((name, payload))
+            if name == "attach_rag_run_correlation":
+                return None
             assert name == "start_rag_run"
             return {
                 "run_id": str(RUN_ID),
@@ -434,7 +436,7 @@ async def test_start_run_dispatches_simple_and_agentic_background_paths() -> Non
         body=CreateMessageRequest(content="What is the policy?", force_mode="simple"),
     )
     await asyncio.sleep(0)
-    simple._execute.assert_awaited_once()  # type: ignore[attr-defined]
+    simple._execute.assert_awaited_once()
     assert accepted.status == "accepted"
 
     agentic = service(AcceptedAdmin(), retrieval_response(), Generation())
@@ -448,7 +450,7 @@ async def test_start_run_dispatches_simple_and_agentic_background_paths() -> Non
         body=CreateMessageRequest(content="Compare the policy.", force_mode="agentic"),
     )
     await asyncio.sleep(0)
-    agentic._execute_agentic.assert_awaited_once()  # type: ignore[attr-defined]
+    agentic._execute_agentic.assert_awaited_once()
 
 
 async def test_memory_lifecycle_is_isolated_from_answer_failures() -> None:

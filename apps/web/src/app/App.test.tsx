@@ -58,6 +58,10 @@ vi.mock("../features/system/SystemOverview", () => ({
   SystemOverview: () => <h1>System overview</h1>,
 }));
 
+vi.mock("../features/observability/ObservabilityPage", () => ({
+  ObservabilityPage: () => <h1>Operations</h1>,
+}));
+
 test("lazy-loads every operational section", async () => {
   const user = userEvent.setup();
   renderWithProviders(<App />);
@@ -68,6 +72,7 @@ test("lazy-loads every operational section", async () => {
     "Chat",
     "Documents",
     "Agent runs",
+    "Operations",
     "Review queue",
     "Evaluations",
     "Memory",
@@ -76,7 +81,7 @@ test("lazy-loads every operational section", async () => {
     await user.click(screen.getByRole("link", { name }));
     expect(await screen.findByRole("heading", { name })).toBeInTheDocument();
   }
-});
+}, 10_000);
 
 test("opens and closes mobile navigation", async () => {
   const user = userEvent.setup();

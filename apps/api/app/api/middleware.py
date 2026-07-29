@@ -1,4 +1,5 @@
 from collections.abc import Awaitable, Callable
+from time import perf_counter
 from uuid import UUID, uuid4
 
 import structlog.contextvars
@@ -26,13 +27,28 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
         structlog.contextvars.clear_contextvars()
         structlog.contextvars.bind_contextvars(
             request_id=str(request_id),
+            correlation_id=str(request_id),
             method=request.method,
             path=request.url.path,
         )
         logger = get_logger()
         logger.info("request_started")
-        response = await call_next(request)
-        response.headers["X-Request-ID"] = str(request_id)
-        logger.info("request_completed", status_code=response.status_code)
-        structlog.contextvars.clear_contextvars()
-        return response
+        started = perf_counter()
+        try:
+            response = await call_next(request)
+            response.headers["X-Request-ID"] = str(request_id)
+            response.headers["X-Correlation-ID"] = str(request_id)
+            logger.info(
+                "request_completed",
+                status_code=response.status_code,
+                latency_ms=round((perf_counter() - started) * 1000, 3),
+            )
+            return response
+        except Exception:
+            logger.exception(
+                "request_failed",
+                latency_ms=round((perf_counter() - started) * 1000, 3),
+            )
+            raise
+        finally:
+            structlog.contextvars.clear_contextvars()

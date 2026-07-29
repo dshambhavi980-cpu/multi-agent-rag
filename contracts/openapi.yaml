@@ -537,6 +537,47 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /v1/runs/{runId}/observability:
+    get:
+      tags: [Runs]
+      operationId: getRunObservability
+      summary: Diagnose one run from its correlation, timing, evidence, and error trace
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - $ref: "#/components/parameters/RunId"
+      responses:
+        "200":
+          description: Redacted observability trace
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ObservabilityTrace"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/observability/summary:
+    get:
+      tags: [Runs]
+      operationId: getWorkspaceObservability
+      summary: Get workspace health, latency, token, and trace quota metrics
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+      responses:
+        "200":
+          description: Rolling workspace operational summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceObservability"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /v1/runs/{runId}/events:
     get:
       tags: [Runs]
@@ -1898,7 +1939,7 @@ components:
     ReplayRunRequest:
       type: object
       additionalProperties: false
-      required: [mode]
+      required: [mode, reason]
       properties:
         mode:
           type: string
@@ -1907,6 +1948,88 @@ components:
           type: string
           minLength: 1
           maxLength: 500
+
+    ObservabilityTrace:
+      type: object
+      additionalProperties: false
+      required:
+        [trace_id, run_id, model, prompt_version, timings, evidence, events]
+      properties:
+        request_id:
+          type: [string, "null"]
+          format: uuid
+        trace_id:
+          type: string
+          format: uuid
+        run_id:
+          type: string
+          format: uuid
+        model:
+          type: string
+        prompt_version:
+          type: string
+        timings:
+          type: object
+          additionalProperties:
+            type: number
+        input_tokens:
+          type: [integer, "null"]
+          minimum: 0
+        output_tokens:
+          type: [integer, "null"]
+          minimum: 0
+        token_usage_source:
+          type: [string, "null"]
+          enum: [provider, estimated, null]
+        replayed_from_run_id:
+          type: [string, "null"]
+          format: uuid
+        replay_mode:
+          type: [string, "null"]
+          enum: [exact_snapshot, current_configuration, null]
+        error:
+          type: [object, "null"]
+          additionalProperties: true
+        evidence:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+
+    WorkspaceObservability:
+      type: object
+      additionalProperties: false
+      required:
+        - window_hours
+        - total_runs
+        - successful_runs
+        - failed_runs
+        - success_rate
+        - p95_latency_ms
+        - input_tokens
+        - output_tokens
+        - active_runs
+        - trace_count
+        - trace_limit
+        - retention_days
+      properties:
+        window_hours: { type: integer, minimum: 1 }
+        total_runs: { type: integer, minimum: 0 }
+        successful_runs: { type: integer, minimum: 0 }
+        failed_runs: { type: integer, minimum: 0 }
+        success_rate: { type: number, minimum: 0, maximum: 1 }
+        p95_latency_ms: { type: number, minimum: 0 }
+        input_tokens: { type: integer, minimum: 0 }
+        output_tokens: { type: integer, minimum: 0 }
+        active_runs: { type: integer, minimum: 0 }
+        trace_count: { type: integer, minimum: 0 }
+        trace_limit: { type: integer, minimum: 1 }
+        retention_days: { type: integer, minimum: 1 }
 
     Citation:
       type: object

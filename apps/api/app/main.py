@@ -291,7 +291,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Workspace-ID"],
-        expose_headers=["X-Request-ID"],
+        expose_headers=["X-Request-ID", "X-Correlation-ID"],
     )
     install_error_handlers(application)
     _install_routes(application)

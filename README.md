@@ -128,6 +128,21 @@ Phase 10 implements the production product experience:
   internal chain-of-thought.
 - Workspace usage counters and guest-first operation across desktop and mobile.
 
+Phase 11 implements bounded production observability and replay:
+
+- Request, run, agent-step, and tool-call correlation with durable trace IDs.
+- Redacted structured logs that remove credentials, JWTs, signed query values,
+  and sensitive document content.
+- End-to-end latency segments plus estimated token accounting for the free Gemini
+  integration.
+- A per-run diagnostic explorer for retrieval evidence, execution timing, tool
+  outcomes, and errors.
+- Exact-snapshot and current-configuration replay without inheriting approvals or
+  sensitive-action authorization.
+- A workspace operations dashboard for success rate, P95 latency, token volume,
+  active runs, and trace quota.
+- Daily Supabase retention enforcement with a 30-day and newest-50-trace bound.
+
 ## Quick start
 
 Requirements: Python 3.12+, Node.js 24+, and optionally Docker.
