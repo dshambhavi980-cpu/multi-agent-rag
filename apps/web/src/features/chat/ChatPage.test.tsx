@@ -168,6 +168,29 @@ test("creates a conversation and explains offline and cold-start failures", asyn
   expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
 });
 
+test("locks the composer while an agent run awaits human review", async () => {
+  mocks.streamSse.mockImplementationOnce(
+    (_path: string, _options: RequestInit, onEvent: (event: object) => void) => {
+      onEvent({ event_type: "run.awaiting_approval", sequence: 1 });
+      return Promise.resolve();
+    },
+  );
+  renderWithProviders(<ChatPage />);
+  await screen.findByText("Emergency access");
+  fireEvent.change(screen.getByLabelText("Message DocPilot"), {
+    target: { value: "Prepare a production deployment decision" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+
+  expect(await screen.findByRole("link", { name: /Open the review queue/ })).toBeVisible();
+  expect(screen.getByLabelText("Message DocPilot")).toBeDisabled();
+  expect(screen.getByLabelText("Run mode")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+  expect(
+    mocks.requestJson.mock.calls.filter(([path]) => String(path).endsWith("/messages")),
+  ).toHaveLength(1);
+});
+
 test.each([
   [new ApiClientError("limited", 429), /workspace is at its run limit/],
   [new ApiClientError("timeout", 504), /exceeded its time limit/],

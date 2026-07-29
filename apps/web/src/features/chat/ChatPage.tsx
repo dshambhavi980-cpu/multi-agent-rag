@@ -95,6 +95,7 @@ export function ChatPage() {
   const [runState, setRunState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<Citation | null>(null);
+  const awaitingReview = runState === "Awaiting human review";
   const headers = {
     Authorization: `Bearer ${session?.access_token ?? ""}`,
     "X-Workspace-ID": workspaceId ?? "",
@@ -160,7 +161,7 @@ export function ChatPage() {
   const send = async (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();
     const content = question.trim();
-    if (!content || !session || !workspaceId || !online || sending) return;
+    if (!content || !session || !workspaceId || !online || sending || awaitingReview) return;
     setSending(true);
     setError(null);
     setStreamed("");
@@ -326,6 +327,7 @@ export function ChatPage() {
                 <span>Run mode</span>
                 <select
                   value={mode}
+                  disabled={awaitingReview}
                   onChange={(event) => {
                     setMode(event.target.value as Mode);
                   }}
@@ -367,7 +369,12 @@ export function ChatPage() {
                 rows={2}
                 maxLength={12000}
                 value={question}
-                placeholder="Ask a question about your documents"
+                disabled={awaitingReview}
+                placeholder={
+                  awaitingReview
+                    ? "Complete the pending human review to continue"
+                    : "Ask a question about your documents"
+                }
                 onChange={(event) => {
                   setQuestion(event.target.value);
                 }}
@@ -383,7 +390,7 @@ export function ChatPage() {
                 type="submit"
                 title="Send message"
                 aria-label="Send message"
-                disabled={!question.trim() || sending || !online}
+                disabled={!question.trim() || sending || !online || awaitingReview}
               >
                 {sending ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}
               </button>
