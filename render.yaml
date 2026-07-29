@@ -6,7 +6,7 @@ services:
     region: singapore
     rootDir: apps/api
     buildCommand: pip install .
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1 --limit-concurrency 32 --backlog 64 --timeout-keep-alive 5 --limit-max-requests 1000 --limit-max-requests-jitter 100
     healthCheckPath: /health
     autoDeploy: true
     envVars:
@@ -17,9 +17,21 @@ services:
       - key: APP_DOCS_ENABLED
         value: "true"
       - key: APP_CORS_ORIGINS
-        value: '["https://web-ten-gold-62.vercel.app","https://docpilot-docpilot1.vercel.app","https://docpilot-dshambhavi980-cpu-docpilot1.vercel.app","https://docpilot-rag-assistant.vercel.app"]'
+        value: '["https://web-ten-gold-62.vercel.app","https://docpilot-docpilot1.vercel.app","https://docpilot-dshambhavi980-cpu-docpilot1.vercel.app","https://docpilot-rag-assistant.vercel.app","https://docpilot.pages.dev"]'
+      - key: APP_CORS_ORIGIN_REGEX
+        value: 'https://.*\.docpilot\.pages\.dev'
       - key: APP_INGESTION_WORKER_ENABLED
         value: "true"
+      - key: APP_INGESTION_BATCH_SIZE
+        value: "1"
+      - key: APP_PROVIDER_MAX_CONCURRENCY
+        value: "6"
+      - key: APP_USER_REQUESTS_PER_MINUTE
+        value: "60"
+      - key: APP_WORKSPACE_REQUESTS_PER_MINUTE
+        value: "240"
+      - key: APP_EXPENSIVE_REQUESTS_PER_MINUTE
+        value: "20"
       - key: APP_SUPABASE_URL
         sync: false
       - key: APP_SUPABASE_PUBLISHABLE_KEY

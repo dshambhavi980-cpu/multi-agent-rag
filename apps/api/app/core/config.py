@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 from typing import Literal
 
@@ -16,12 +17,14 @@ class Settings(BaseSettings):
     app_name: str = "Multi-Agent Hybrid RAG API"
     app_version: str = "0.1.0"
     environment: Literal["local", "test", "preview", "production"] = "local"
-    git_sha: str = "development"
+    git_sha: str = Field(default_factory=lambda: os.getenv("RENDER_GIT_COMMIT", "development"))
+    release_id: str = Field(default_factory=lambda: os.getenv("RENDER_GIT_COMMIT", "local"))
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     docs_enabled: bool = True
     cors_origins: list[AnyHttpUrl] = Field(
         default_factory=lambda: [AnyHttpUrl("http://localhost:5173")]
     )
+    cors_origin_regex: str | None = None
     cold_start_window_seconds: int = Field(default=60, ge=0, le=600)
     supabase_url: AnyHttpUrl | None = None
     supabase_publishable_key: SecretStr | None = None

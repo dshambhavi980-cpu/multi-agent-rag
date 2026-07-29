@@ -1,7 +1,9 @@
 from uuid import UUID
 
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 
+from app.core.config import Settings
+from app.main import create_app
 from app.services.readiness import ReadinessRegistry, static_check
 
 
@@ -31,6 +33,27 @@ async def test_cors_accepts_configured_origin_without_trailing_slash(
 
     assert response.status_code == 200
     assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:5173"
+
+
+async def test_cors_accepts_scoped_preview_origin(settings: Settings) -> None:
+    settings.cors_origin_regex = r"https://.*\.docpilot\.pages\.dev"
+    application = create_app(settings)
+    async with (
+        application.router.lifespan_context(application),
+        AsyncClient(
+            transport=ASGITransport(app=application), base_url="http://test"
+        ) as preview_client,
+    ):
+        response = await preview_client.options(
+            "/health",
+            headers={
+                "Origin": "https://feature-14.docpilot.pages.dev",
+                "Access-Control-Request-Method": "GET",
+            },
+        )
+    assert response.headers["Access-Control-Allow-Origin"] == (
+        "https://feature-14.docpilot.pages.dev"
+    )
 
 
 async def test_valid_request_id_is_preserved(client: AsyncClient) -> None:
@@ -95,8 +118,9 @@ async def test_version_uses_runtime_configuration(client: AsyncClient) -> None:
     response = await client.get("/version")
 
     assert response.status_code == 200
-    assert response.json() == {
-        "version": "0.1.0",
-        "commit": "test-commit",
-        "environment": "test",
-    }
+    body = response.json()
+    assert body["version"] == "0.1.0"
+    assert body["commit"] == "test-commit"
+    assert body["environment"] == "test"
+    assert body["release_id"] == "local"
+    assert len(body["configuration_sha256"]) == 64

@@ -336,6 +336,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
     application.add_middleware(
         CORSMiddleware,
         allow_origins=[str(origin).rstrip("/") for origin in resolved_settings.cors_origins],
+        allow_origin_regex=resolved_settings.cors_origin_regex,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Workspace-ID"],

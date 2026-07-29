@@ -1,0 +1,6 @@
+name = "docpilot"
+compatibility_date = "2026-07-29"
+pages_build_output_dir = "./dist"
+
+[vars]
+VITE_API_BASE_URL = "https://docpilot-api-w6hj.onrender.com"

@@ -1166,7 +1166,7 @@ components:
     Version:
       type: object
       additionalProperties: false
-      required: [version, commit, environment]
+      required: [version, commit, environment, release_id, configuration_sha256]
       properties:
         version:
           type: string
@@ -1174,6 +1174,11 @@ components:
           type: string
         environment:
           type: string
+        release_id:
+          type: string
+        configuration_sha256:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
 
     AuthenticatedUser:
       type: object

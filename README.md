@@ -98,6 +98,14 @@ Phase 13 adds production hardening:
 - Prompt-injection labeling, upload validation, CORS allowlists, and secure response headers.
 - Load/profiling tools, capacity reporting, SBOM and vulnerability gates, backup and secret rotation runbooks.
 
+Phase 14 implements reproducible release engineering:
+
+- Secure Vercel and Cloudflare Pages builds with SPA routing and pull-request previews.
+- A bounded Render web-service definition with one memory-conscious worker and provider-managed secrets.
+- Committed Supabase local configuration, ordered migrations, and a non-sensitive demo seed.
+- An approval-gated release workflow covering migrations, deployment, public end-to-end smoke, and immutable release snapshots.
+- Commit-aware `/version` responses plus a forward-only database and reviewed application rollback drill.
+
 Phase 8 implements attributable, bounded memory:
 
 - Existing conversation messages feed a fixed-size recent-history window.
@@ -218,6 +226,9 @@ npm run check:web
 - [`docs/phase-6-acceptance.md`](docs/phase-6-acceptance.md)
 - [`docs/phase-7-acceptance.md`](docs/phase-7-acceptance.md)
 - [`docs/phase-12-acceptance.md`](docs/phase-12-acceptance.md)
+- [`docs/phase-13-acceptance.md`](docs/phase-13-acceptance.md)
+- [`docs/phase-14-acceptance.md`](docs/phase-14-acceptance.md)
+- [`docs/operations/release-and-rollback.md`](docs/operations/release-and-rollback.md)
 - [`docs/development.md`](docs/development.md)
 - [`contracts/openapi.yaml`](contracts/openapi.yaml)
 - [`contracts/events.asyncapi.yaml`](contracts/events.asyncapi.yaml)

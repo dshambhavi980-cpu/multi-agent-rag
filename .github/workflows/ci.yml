@@ -20,6 +20,7 @@ jobs:
       - run: python scripts/check_contracts.py
       - run: python scripts/check_migrations.py
       - run: python scripts/check_evaluation_regression.py
+      - run: python scripts/check_release_config.py
 
   backend:
     runs-on: ubuntu-latest

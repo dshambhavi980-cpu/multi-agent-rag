@@ -27,3 +27,5 @@ class Version(BaseModel):
     version: str
     commit: str
     environment: str
+    release_id: str
+    configuration_sha256: str

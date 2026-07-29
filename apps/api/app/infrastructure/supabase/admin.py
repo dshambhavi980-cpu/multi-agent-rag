@@ -47,6 +47,8 @@ class SupabaseAdminClient:
                     status=status,
                     retryable=status == 503,
                 )
+            if response.status_code == 204 or not response.content:
+                return None
             return response.json()
         except ApplicationError:
             raise

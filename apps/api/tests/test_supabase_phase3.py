@@ -28,6 +28,22 @@ async def test_admin_rpc_and_claim() -> None:
     await admin.aclose()
 
 
+async def test_admin_rpc_accepts_empty_success_response() -> None:
+    admin = SupabaseAdminClient(
+        supabase_url="https://example.supabase.co",
+        service_key="service",
+        timeout_seconds=3,
+    )
+    await admin._client.aclose()
+    admin._client = httpx.AsyncClient(
+        base_url="https://example.supabase.co/rest/v1/rpc",
+        transport=httpx.MockTransport(lambda request: httpx.Response(204)),
+    )
+
+    assert await admin.rpc("attach_rag_run_correlation", {}) is None
+    await admin.aclose()
+
+
 async def test_admin_maps_errors_and_unavailable() -> None:
     admin = SupabaseAdminClient(
         supabase_url="https://example.supabase.co",
