@@ -31,7 +31,7 @@ class MemoryService:
     def __init__(self, *, admin: MemoryAdmin, config: MemoryConfig) -> None:
         self.admin = admin
         self.config = config
-        self._last_cleanup = 0.0
+        self._last_cleanup: float | None = None
 
     async def list_items(
         self,
@@ -132,7 +132,10 @@ class MemoryService:
 
     async def _maybe_cleanup(self) -> None:
         now = monotonic()
-        if now - self._last_cleanup < self.config.cleanup_interval_seconds:
+        if (
+            self._last_cleanup is not None
+            and now - self._last_cleanup < self.config.cleanup_interval_seconds
+        ):
             return
         self._last_cleanup = now
         try:

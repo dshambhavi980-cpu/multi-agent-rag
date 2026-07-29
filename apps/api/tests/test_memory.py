@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from typing import Any
+from unittest.mock import patch
 from uuid import UUID
 
 from httpx import AsyncClient
@@ -168,6 +169,20 @@ async def test_prompt_context_is_bounded_untrusted_and_failure_tolerant() -> Non
         actor_id=USER_ID,
         conversation_id=CONVERSATION_ID,
     )
+
+
+async def test_first_cleanup_does_not_depend_on_system_uptime() -> None:
+    admin = Admin()
+    service = MemoryService(
+        admin=admin,
+        config=MemoryConfig(cleanup_interval_seconds=300),
+    )
+
+    with patch("app.services.memory.monotonic", return_value=1.0):
+        await service._maybe_cleanup()
+        await service._maybe_cleanup()
+
+    assert [name for name, _ in admin.calls].count("cleanup_expired_memory") == 1
 
 
 class Verifier:
