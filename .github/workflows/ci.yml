@@ -53,6 +53,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: python -m venv .audit-venv
+      - run: .audit-venv/bin/python -m pip install --upgrade pip==26.1.2
       - run: .audit-venv/bin/python -m pip install -e "./apps/api" pip-audit==2.9.0
       - run: .audit-venv/bin/python -m pip_audit --local --skip-editable
       - run: npm audit --omit=dev --audit-level=high
