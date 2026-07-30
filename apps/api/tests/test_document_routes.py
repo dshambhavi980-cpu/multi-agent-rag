@@ -117,7 +117,7 @@ class Storage:
         return None
 
     async def create_signed_upload(self, path: str, token: str) -> tuple[str, str]:
-        assert path.endswith("one.txt")
+        assert path.endswith(("/source.txt", "/source.pdf"))
         assert token == "token"
         return "https://signed", "upload-token"
 
@@ -185,6 +185,8 @@ async def test_upload_list_complete_and_get_job(client: AsyncClient) -> None:
     )
     assert create.status_code == 201, create.text
     assert create.json()["upload_token"] == "upload-token"
+    assert create.json()["object_path"].endswith("/source.txt")
+    assert "one.txt" not in create.json()["object_path"]
 
     complete = await client.post(
         "/v1/documents/complete-upload",
@@ -198,6 +200,28 @@ async def test_upload_list_complete_and_get_job(client: AsyncClient) -> None:
     assert listed.json()["items"][0]["filename"] == "one.txt"
     fetched = await client.get(f"/v1/ingestion-jobs/{JOB_ID}", headers=headers())
     assert fetched.json()["id"] == str(JOB_ID)
+
+
+async def test_upload_url_uses_safe_object_key_for_unicode_filename(
+    client: AsyncClient,
+) -> None:
+    configure(client)
+    filename = "Alex Yu - System Design Interview An Insider\u2019s Guide (2020).pdf"
+
+    response = await client.post(
+        "/v1/documents/upload-url",
+        headers=headers(),
+        json={
+            "filename": filename,
+            "content_type": "application/pdf",
+            "size_bytes": 5,
+            "sha256": CHECKSUM,
+        },
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["object_path"].endswith("/source.pdf")
+    assert filename not in response.json()["object_path"]
 
 
 async def test_get_document_and_open_exact_source(client: AsyncClient) -> None:

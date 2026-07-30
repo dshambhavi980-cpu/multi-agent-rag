@@ -83,7 +83,8 @@ async def create_upload_url(
     _validate_file(body.filename, body.content_type)
     upload_id = uuid4()
     expires_at = datetime.now(UTC) + timedelta(hours=2)
-    object_path = f"{workspace_id}/{auth.user.id}/{upload_id}/{body.filename}"
+    extension = Path(body.filename).suffix.lower()
+    object_path = f"{workspace_id}/{auth.user.id}/{upload_id}/source{extension}"
     data = cast(SupabaseDataClient, request.app.state.supabase_data)
     await data.create_upload_session(
         access_token=auth.access_token,

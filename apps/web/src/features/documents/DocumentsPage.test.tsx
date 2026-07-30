@@ -130,6 +130,29 @@ test("accepts drag and drop and reports unsupported files", async () => {
   ).toBeInTheDocument();
 });
 
+test("does not expose internal storage paths when an upload fails", async () => {
+  const user = userEvent.setup();
+  mocks.upload.mockResolvedValue({
+    error: new Error("Invalid key: workspace-1/user-1/upload-1/private-name.pdf"),
+  });
+  renderWithProviders(<DocumentsPage />);
+  await screen.findByText("guide.md");
+
+  const input = document.querySelector("input[type=file]");
+  const file = new File(["hello"], "An Insider\u2019s Guide.pdf", {
+    type: "application/pdf",
+  });
+  Object.defineProperty(file, "arrayBuffer", {
+    value: () => Promise.resolve(new Uint8Array([1, 2, 3]).buffer),
+  });
+  await user.upload(input as HTMLInputElement, file);
+
+  expect(
+    await screen.findByText("The document could not be uploaded. Please try again."),
+  ).toBeInTheDocument();
+  expect(screen.queryByText(/workspace-1\/user-1/)).not.toBeInTheDocument();
+});
+
 test("renders empty and failed query states", async () => {
   mocks.requestJson.mockResolvedValueOnce({ items: [], next_cursor: null });
   const first = renderWithProviders(<DocumentsPage />);

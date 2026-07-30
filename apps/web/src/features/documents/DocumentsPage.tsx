@@ -139,7 +139,9 @@ export function DocumentsPage() {
           contentType,
           upsert: false,
         });
-      if (error) throw error;
+      if (error) {
+        throw new Error("The document could not be uploaded. Please try again.");
+      }
       await requestJson("/v1/documents/complete-upload", {
         method: "POST",
         headers,
