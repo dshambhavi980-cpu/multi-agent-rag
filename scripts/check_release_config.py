@@ -37,7 +37,15 @@ def main() -> None:
 
     vercel = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
     require(
-        vercel["rewrites"][0]["destination"] == "/index.html",
+        vercel["rewrites"][0]
+        == {
+            "source": "/api/:path*",
+            "destination": "https://docpilot-api-w6hj.onrender.com/:path*",
+        },
+        "Vercel API proxy is missing or ordered incorrectly.",
+    )
+    require(
+        vercel["rewrites"][1]["destination"] == "/index.html",
         "Vercel SPA rewrite missing.",
     )
     header_values = {
