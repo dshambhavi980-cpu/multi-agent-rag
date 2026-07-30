@@ -406,15 +406,6 @@ export function ChatPage() {
                   }
                 }}
               />
-              <button
-                className="send-button"
-                type="submit"
-                title="Send message"
-                aria-label="Send message"
-                disabled={!question.trim() || sending || !online || awaitingReview}
-              >
-                {sending ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}
-              </button>
             </div>
             <div className="chat-options">
               <SelectMenu
@@ -465,6 +456,15 @@ export function ChatPage() {
                   {!readyDocuments.length ? <p>No indexed sources yet.</p> : null}
                 </div>
               </details>
+              <button
+                className="send-button"
+                type="submit"
+                title="Send message"
+                aria-label="Send message"
+                disabled={!question.trim() || sending || !online || awaitingReview}
+              >
+                {sending ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}
+              </button>
             </div>
           </form>
         </div>

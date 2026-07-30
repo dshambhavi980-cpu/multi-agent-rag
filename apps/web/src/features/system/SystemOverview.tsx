@@ -69,7 +69,6 @@ export function SystemOverview() {
 
       <section className="status-banner" aria-label="Overall system status">
         <div className="status-summary">
-          <StatusDot status={status} />
           <div>
             <p className="status-label">
               {status === "ready" ? "Operational" : "Attention required"}

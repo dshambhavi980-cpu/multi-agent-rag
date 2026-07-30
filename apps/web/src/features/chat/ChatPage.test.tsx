@@ -130,7 +130,9 @@ test("renders cited history and streams a new message", async () => {
   });
   fireEvent.click(screen.getByRole("button", { name: "Run mode" }));
   fireEvent.click(screen.getByRole("option", { name: /Agentic/ }));
-  fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+  const sendButton = screen.getByRole("button", { name: "Send message" });
+  expect(sendButton.parentElement).toHaveClass("chat-options");
+  fireEvent.click(sendButton);
 
   await waitFor(() => {
     expect(mocks.streamSse).toHaveBeenCalledWith(

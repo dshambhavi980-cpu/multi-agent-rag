@@ -319,7 +319,6 @@ select:focus-visible {
   justify-content: space-between;
   gap: 18px;
   border: 1px solid #d7dde5;
-  border-left: 4px solid #087f70;
   border-radius: 7px;
   background: #ffffff;
   padding: 18px 20px;
@@ -1248,8 +1247,7 @@ select:focus-visible {
 }
 
 .composer-input {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 42px;
+  display: block;
   border: 0;
   border-radius: 0;
   background: #ffffff;
@@ -1271,10 +1269,13 @@ select:focus-visible {
 }
 
 .send-button {
+  display: inline-flex;
   width: 34px;
   height: 34px;
-  align-self: end;
-  margin: 0 7px 7px 0;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
   border: 0;
   border-radius: 50%;
   background: #087f70;

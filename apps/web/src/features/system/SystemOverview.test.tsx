@@ -51,6 +51,9 @@ test("renders warm operational status", async () => {
   expect(screen.getByText("The API is warm and accepting traffic.")).toBeInTheDocument();
   expect(screen.getByText("0.1.0")).toBeInTheDocument();
   expect(screen.getByText("application")).toBeInTheDocument();
+  expect(
+    screen.getByRole("region", { name: "Overall system status" }).querySelector(".status-dot"),
+  ).toBeNull();
 });
 
 test("renders an actionable unreachable state", async () => {
