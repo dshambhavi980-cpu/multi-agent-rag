@@ -75,7 +75,8 @@ beforeEach(() => {
             id: "message-1",
             conversation_id: conversation.id,
             role: "assistant",
-            content: "Rotate it [C1].",
+            content:
+              "* **Step 1:** Rotate it [C1]. * **Step 2:** Record the audit event [C1].",
             answer_status: "grounded",
             confidence: 0.91,
             citations: [citation],
@@ -123,10 +124,14 @@ test("renders cited history and streams a new message", async () => {
   expect(
     await screen.findByText(
       (_content, element) =>
-        element?.tagName === "P" && element.textContent === "Rotate it C1.",
+        element?.tagName === "LI" &&
+        element.textContent === "Step 1: Rotate it C1.",
     ),
   ).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /Open source C1/ }));
+  expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  const [firstCitation] = screen.getAllByRole("button", { name: /Open source C1/ });
+  if (!firstCitation) throw new Error("Expected at least one citation");
+  fireEvent.click(firstCitation);
   expect(await screen.findByRole("dialog", { name: "Operations" })).toBeInTheDocument();
   fireEvent.keyDown(window, { key: "Escape" });
 

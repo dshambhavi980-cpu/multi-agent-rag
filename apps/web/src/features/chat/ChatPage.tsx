@@ -59,10 +59,12 @@ function AnswerContent({
   onCitation: (citation: Citation) => void;
 }) {
   const citationMap = new Map(citations.map((citation) => [citation.citation_id, citation]));
-  const markdown = content.replace(
-    /\[(C[1-9][0-9]*)\]/g,
-    (_match, citationId: string) => `[${citationId}](citation:${citationId})`,
-  );
+  const markdown = content
+    .replace(/\s+\*\s+(?=\*\*)/g, "\n* ")
+    .replace(
+      /\[(C[1-9][0-9]*)\]/g,
+      (_match, citationId: string) => `[${citationId}](citation:${citationId})`,
+    );
   return (
     <div className="message-markdown">
       <ReactMarkdown
