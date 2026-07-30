@@ -135,9 +135,19 @@ test("renders cited history and streams a new message", async () => {
   expect(await screen.findByRole("dialog", { name: "Operations" })).toBeInTheDocument();
   fireEvent.keyDown(window, { key: "Escape" });
 
-  fireEvent.change(screen.getByLabelText("Message DocPilot"), {
+  const composer = screen.getByLabelText("Message DocPilot");
+  expect(composer).toHaveAttribute("rows", "1");
+  Object.defineProperty(composer, "scrollHeight", { configurable: true, value: 88 });
+  fireEvent.change(composer, {
     target: { value: "How should I rotate it?" },
   });
+  expect(composer.style.height).toBe("88px");
+  Object.defineProperty(composer, "scrollHeight", { configurable: true, value: 220 });
+  fireEvent.change(composer, {
+    target: { value: "How should I rotate it, record it, and verify the audit event?" },
+  });
+  expect(composer.style.height).toBe("176px");
+  expect(composer.style.overflowY).toBe("auto");
   fireEvent.click(screen.getByRole("button", { name: "Run mode" }));
   fireEvent.click(screen.getByRole("option", { name: /Agentic/ }));
   const sendButton = screen.getByRole("button", { name: "Send message" });

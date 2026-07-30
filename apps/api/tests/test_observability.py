@@ -3,6 +3,7 @@ from uuid import UUID
 
 from app.core.logging import redact_sensitive_data
 from app.models.rag import ReplayRunRequest
+from app.services.rag import AGENT_PROMPT_VERSION, LEGACY_PROMPT_VERSION
 from tests.test_rag import (
     CONVERSATION_ID,
     MESSAGE_ID,
@@ -81,6 +82,48 @@ async def test_replay_uses_snapshot_and_never_inherits_approval() -> None:
     replay_metadata = admin.calls[-1][1]
     assert replay_metadata["p_source_run_id"] == str(UUID(int=99))
     assert "approval" not in str(replay_metadata).lower()
+    start_payload = next(payload for name, payload in admin.calls if name == "start_rag_run")
+    assert start_payload["p_prompt_version"] == AGENT_PROMPT_VERSION
+
+
+async def test_exact_replay_supports_the_preserved_v1_prompt_bundle() -> None:
+    class Admin(RagAdmin):
+        async def rpc(self, name: str, payload: dict[str, Any]) -> Any:
+            self.calls.append((name, payload))
+            if name == "get_rag_replay_snapshot":
+                return {
+                    "conversation_id": str(CONVERSATION_ID),
+                    "question": "How is emergency access reset?",
+                    "document_ids": None,
+                    "mode": "simple",
+                    "model": "gemini-3.1-flash-lite",
+                    "prompt_version": LEGACY_PROMPT_VERSION,
+                }
+            if name == "start_rag_run":
+                return {
+                    "run_id": str(RUN_ID),
+                    "message_id": str(MESSAGE_ID),
+                    "status": "completed",
+                    "events_url": f"/v1/runs/{RUN_ID}/events",
+                }
+            return None
+
+    admin = Admin()
+    instance = service(admin, retrieval_response(), Generation())
+
+    accepted = await instance.replay_run(
+        workspace_id=WORKSPACE_ID,
+        actor_id=USER_ID,
+        source_run_id=UUID(int=98),
+        request_id=UUID(int=15),
+        idempotency_key="phase11-exact-replay",
+        body=ReplayRunRequest(mode="exact_snapshot", reason="Reproduce the old answer"),
+    )
+
+    assert accepted.run_id == RUN_ID
+    start_payload = next(payload for name, payload in admin.calls if name == "start_rag_run")
+    assert start_payload["p_prompt_version"] == LEGACY_PROMPT_VERSION
+    assert start_payload["p_mode"] == "simple"
 
 
 async def test_observability_models_and_estimated_telemetry_are_recorded() -> None:

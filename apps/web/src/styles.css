@@ -1441,11 +1441,16 @@ select:focus-visible {
 }
 
 .composer-input textarea {
-  min-height: 52px;
+  display: block;
+  width: 100%;
+  min-height: 42px;
+  max-height: 176px;
+  box-sizing: border-box;
+  overflow-y: hidden;
   resize: none;
   border: 0;
   background: transparent;
-  padding: 12px;
+  padding: 10px 12px 8px;
   color: #172033;
   font: inherit;
   line-height: 1.45;

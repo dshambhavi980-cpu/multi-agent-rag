@@ -36,10 +36,13 @@ from app.services.memory import MemoryService
 from app.services.retrieval import HybridRetrievalService
 
 PROMPT_VERSION = "rag-system-v2+answer-v2+memory-v1+injection-v1"
+LEGACY_PROMPT_VERSION = "rag-system-v1+answer-v1+memory-v1+injection-v1"
 AGENT_PROMPT_VERSION = "agent-system-v1+memory-v1+injection-v1"
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
 SYSTEM_PROMPT = (PROMPT_DIR / "rag_system_v2.txt").read_text(encoding="utf-8").strip()
 ANSWER_PROMPT = (PROMPT_DIR / "rag_answer_v2.txt").read_text(encoding="utf-8").strip()
+LEGACY_SYSTEM_PROMPT = (PROMPT_DIR / "rag_system_v1.txt").read_text(encoding="utf-8").strip()
+LEGACY_ANSWER_PROMPT = (PROMPT_DIR / "rag_answer_v1.txt").read_text(encoding="utf-8").strip()
 CITATION_PATTERN = re.compile(r"\[(C[1-9][0-9]*)\]")
 SEGMENT_BOUNDARY = re.compile(r"(?:[.!?](?:\s+|$)|\n+)")
 TERMINAL_STATUSES = {"completed", "failed", "cancelled", "timed_out"}
@@ -63,6 +66,24 @@ class RagConfig:
     insufficient_semantic_threshold: float = 0.25
     event_poll_seconds: float = 0.1
     heartbeat_seconds: float = 15
+
+
+@dataclass(frozen=True)
+class PromptBundle:
+    version: str
+    system_prompt: str
+    answer_prompt: str
+
+
+CURRENT_PROMPT_BUNDLE = PromptBundle(PROMPT_VERSION, SYSTEM_PROMPT, ANSWER_PROMPT)
+SUPPORTED_PROMPT_BUNDLES = {
+    PROMPT_VERSION: CURRENT_PROMPT_BUNDLE,
+    LEGACY_PROMPT_VERSION: PromptBundle(
+        LEGACY_PROMPT_VERSION,
+        LEGACY_SYSTEM_PROMPT,
+        LEGACY_ANSWER_PROMPT,
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -238,7 +259,9 @@ class GroundedRagService:
                         else None
                     ),
                     "p_request_key": idempotency_key,
-                    "p_prompt_version": PROMPT_VERSION,
+                    "p_prompt_version": (
+                        AGENT_PROMPT_VERSION if decision.mode == "agentic" else PROMPT_VERSION
+                    ),
                     "p_model": self.generation.model,
                     "p_mode": decision.mode,
                 },
@@ -311,15 +334,23 @@ class GroundedRagService:
             ),
         )
         decision = route_request(replay_body)
-        snapshot_prompt_version = (
-            AGENT_PROMPT_VERSION if snapshot["mode"] == "agentic" else PROMPT_VERSION
-        )
+        stored_prompt_version = str(snapshot["prompt_version"])
         prompt_version = (
-            str(snapshot["prompt_version"]) if body.mode == "exact_snapshot" else PROMPT_VERSION
+            AGENT_PROMPT_VERSION
+            if decision.mode == "agentic"
+            else stored_prompt_version
+            if body.mode == "exact_snapshot"
+            else PROMPT_VERSION
         )
         model = str(snapshot["model"]) if body.mode == "exact_snapshot" else self.generation.model
+        exact_prompt_bundle: PromptBundle | None = None
+        exact_prompt_supported = (
+            stored_prompt_version in {AGENT_PROMPT_VERSION, LEGACY_PROMPT_VERSION, PROMPT_VERSION}
+            if snapshot["mode"] == "agentic"
+            else prompt_version in SUPPORTED_PROMPT_BUNDLES
+        )
         if body.mode == "exact_snapshot" and (
-            model != self.generation.model or prompt_version != snapshot_prompt_version
+            model != self.generation.model or not exact_prompt_supported
         ):
             raise ApplicationError(
                 "REPLAY_SNAPSHOT_UNAVAILABLE",
@@ -330,6 +361,8 @@ class GroundedRagService:
                 ),
                 status=409,
             )
+        if body.mode == "exact_snapshot" and snapshot["mode"] == "simple":
+            exact_prompt_bundle = SUPPORTED_PROMPT_BUNDLES[prompt_version]
         accepted = RunAccepted.model_validate(
             await self.admin.rpc(
                 "start_rag_run",
@@ -389,6 +422,7 @@ class GroundedRagService:
                     body=replay_body,
                     conversation_id=UUID(str(snapshot["conversation_id"])),
                     source_message_id=accepted.message_id,
+                    prompt_bundle=exact_prompt_bundle,
                 )
             )
             task = asyncio.create_task(operation, name=f"rag-replay-{accepted.run_id}")
@@ -809,7 +843,9 @@ class GroundedRagService:
         body: CreateMessageRequest,
         conversation_id: UUID,
         source_message_id: UUID,
+        prompt_bundle: PromptBundle | None = None,
     ) -> None:
+        prompts = prompt_bundle or CURRENT_PROMPT_BUNDLE
         started = perf_counter()
         accumulated = ""
         timings: dict[str, float] = {}
@@ -880,7 +916,13 @@ class GroundedRagService:
                 )
                 if self._insufficient(retrieval):
                     await self._complete_insufficient(
-                        run_id, workspace_id, body.content, retrieval, timings, started
+                        run_id,
+                        workspace_id,
+                        body.content,
+                        retrieval,
+                        timings,
+                        started,
+                        prompt_version=prompts.version,
                     )
                     await self._maintain_memory(
                         workspace_id=workspace_id,
@@ -897,6 +939,7 @@ class GroundedRagService:
                     question=body.content,
                     evidence=evidence,
                     memory_context=memory_context,
+                    prompt_bundle=prompts,
                 )
                 timings["generation_ms"] = round((perf_counter() - generation_started) * 1000, 3)
                 timings["total_ms"] = round((perf_counter() - started) * 1000, 3)
@@ -930,7 +973,7 @@ class GroundedRagService:
                             "p_confidence": retrieval_quality_confidence,
                             "p_citations": citations,
                             "p_model": self.generation.model,
-                            "p_prompt_version": PROMPT_VERSION,
+                            "p_prompt_version": prompts.version,
                             "p_timings": timings,
                         },
                     ),
@@ -1018,7 +1061,7 @@ class GroundedRagService:
                 started=started,
             )
 
-    async def _generate_validated(
+    async def _generate_validated(  # noqa: PLR0913
         self,
         *,
         run_id: UUID,
@@ -1026,14 +1069,16 @@ class GroundedRagService:
         question: str,
         evidence: list[dict[str, Any]],
         memory_context: str = "",
+        prompt_bundle: PromptBundle | None = None,
     ) -> ValidatedAnswer:
+        prompts = prompt_bundle or CURRENT_PROMPT_BUNDLE
         allowed = {str(item["citation_id"]) for item in evidence}
         context = "\n\n".join(
             f"[{item['citation_id']}] {item['label']}\n"
             f"<untrusted_evidence>{sanitize_untrusted_text(str(item['quote']))}</untrusted_evidence>"
             for item in evidence
         )
-        prompt = ANSWER_PROMPT.format(question=question, context=context)
+        prompt = prompts.answer_prompt.format(question=question, context=context)
         if memory_context:
             prompt = f"{prompt}\n\nConversation memory:\n{memory_context}"
         buffer = ""
@@ -1045,7 +1090,7 @@ class GroundedRagService:
         first_delta_at: float | None = None
         generation_started = perf_counter()
         async for delta in self.generation.stream_answer(
-            system_prompt=SYSTEM_PROMPT,
+            system_prompt=prompts.system_prompt,
             prompt=prompt,
         ):
             buffer += delta
@@ -1132,6 +1177,8 @@ class GroundedRagService:
         retrieval: RetrievalResponse,
         timings: dict[str, float],
         started: float,
+        *,
+        prompt_version: str = PROMPT_VERSION,
     ) -> None:
         await self._event(run_id, workspace_id, "answer.delta", {"delta": INSUFFICIENT_ANSWER})
         timings["total_ms"] = round((perf_counter() - started) * 1000, 3)
@@ -1149,7 +1196,7 @@ class GroundedRagService:
                     ),
                     "p_citations": [],
                     "p_model": self.generation.model,
-                    "p_prompt_version": PROMPT_VERSION,
+                    "p_prompt_version": prompt_version,
                     "p_timings": timings,
                 },
             ),

@@ -12,10 +12,71 @@ import {
 } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
-import { requestJson } from "../../api/client";
+import { ApiClientError, requestJson } from "../../api/client";
 import { useAuth } from "../auth/auth-context";
 import { useWorkspace } from "../workspaces/workspace-context";
 import type { ObservabilityTrace, RunPageResult, RunTrace } from "./runs.types";
+
+type TimelineItem = {
+  id: string;
+  kind: "step" | "tool" | "event";
+  title: string;
+  summary: string;
+  status: "succeeded" | "failed";
+  duration_ms: number | null;
+  created_at: string;
+};
+
+const HIDDEN_OPERATIONAL_EVENTS = new Set(["answer.delta", "run.heartbeat"]);
+
+function eventTitle(eventType: string): string {
+  const titles: Record<string, string> = {
+    "run.status_changed": "Run status",
+    "retrieval.completed": "Hybrid retrieval",
+    "citations.available": "Citation validation",
+    "run.awaiting_approval": "Human review",
+    "run.completed": "Run completed",
+    "run.failed": "Run failed",
+    "run.degraded": "Run degraded",
+    "agent.step_started": "Agent step started",
+    "agent.step_completed": "Agent step completed",
+  };
+  return titles[eventType] ?? eventType.replaceAll(".", " ");
+}
+
+function eventSummary(event: ObservabilityTrace["events"][number]): string {
+  const attributes = event.attributes;
+  if (event.event_type === "retrieval.completed") {
+    const selected = attributes.selected_chunks;
+    return typeof selected === "number"
+      ? `Selected ${String(selected)} grounded evidence passages.`
+      : "Retrieved and ranked grounded document evidence.";
+  }
+  if (event.event_type === "run.status_changed") {
+    const status = attributes.status;
+    return typeof status === "string"
+      ? `Run entered the ${status.replaceAll("_", " ")} state.`
+      : "The run status changed.";
+  }
+  if (event.event_type === "citations.available") {
+    return "Validated citations were attached to the answer.";
+  }
+  if (event.event_type === "run.completed") {
+    return "The grounded answer completed successfully.";
+  }
+  if (event.event_type === "run.failed") {
+    return "The run stopped before producing a complete answer.";
+  }
+  const node = attributes.node;
+  return typeof node === "string"
+    ? `Processed the ${node.replaceAll("_", " ")} stage.`
+    : "Recorded a durable execution event.";
+}
+
+function replayError(error: unknown): string {
+  if (error instanceof ApiClientError) return error.message;
+  return "Replay could not be started. Please retry.";
+}
 
 export function RunsPage() {
   const { session } = useAuth();
@@ -81,13 +142,52 @@ export function RunsPage() {
       await queryClient.invalidateQueries({ queryKey: ["runs", workspaceId] });
     },
   });
-  const timeline = useMemo(
-    () => [
-      ...(trace.data?.steps.map((step) => ({ kind: "step" as const, ...step })) ?? []),
-      ...(trace.data?.tool_calls.map((tool) => ({ kind: "tool" as const, ...tool })) ?? []),
-    ].sort((a, b) => a.created_at.localeCompare(b.created_at)),
-    [trace.data],
-  );
+  const timeline = useMemo<TimelineItem[]>(() => {
+    const steps: TimelineItem[] =
+      trace.data?.steps.map((step) => ({
+        id: step.id,
+        kind: "step",
+        title: step.node,
+        summary: step.summary,
+        status: step.status === "failed" ? "failed" : "succeeded",
+        duration_ms: step.duration_ms,
+        created_at: step.created_at,
+      })) ?? [];
+    const tools: TimelineItem[] =
+      trace.data?.tool_calls.map((tool) => ({
+        id: tool.id,
+        kind: "tool",
+        title: tool.tool_name,
+        summary: `Permission: ${tool.permission}`,
+        status: tool.status,
+        duration_ms: tool.duration_ms,
+        created_at: tool.created_at,
+      })) ?? [];
+    const hasAgentSteps = steps.length > 0;
+    const events: TimelineItem[] =
+      diagnostics.data?.events
+        .filter(
+          (event) =>
+            !HIDDEN_OPERATIONAL_EVENTS.has(event.event_type) &&
+            !(hasAgentSteps && event.event_type.startsWith("agent.step_")),
+        )
+        .map((event, index) => ({
+          id: `event-${String(index)}-${event.occurred_at}`,
+          kind: "event",
+          title: eventTitle(event.event_type),
+          summary: eventSummary(event),
+          status: event.severity === "error" ? "failed" : "succeeded",
+          duration_ms:
+            event.latency_ms ??
+            (typeof event.attributes.duration_ms === "number"
+              ? event.attributes.duration_ms
+              : null),
+          created_at: event.occurred_at,
+        })) ?? [];
+    return [...steps, ...tools, ...events].sort((a, b) =>
+      a.created_at.localeCompare(b.created_at),
+    );
+  }, [diagnostics.data, trace.data]);
   const scrollRef = useRef<HTMLDivElement>(null);
   // React Compiler intentionally leaves TanStack Virtual's imperative API alone.
   // eslint-disable-next-line react-hooks/incompatible-library
@@ -212,7 +312,9 @@ export function RunsPage() {
                 <h3 className="timeline-title">Execution timeline</h3>
                 <div className="timeline-scroll" ref={scrollRef}>
                   {!timeline.length ? (
-                    <p className="table-message">No agent trace for this fast RAG run.</p>
+                    <p className="table-message">
+                      No durable execution events were recorded for this run.
+                    </p>
                   ) : (
                     <div
                       className="timeline-virtual"
@@ -233,17 +335,14 @@ export function RunsPage() {
                                 <CheckCircle2 size={16} />}
                             </span>
                             <div>
-                              <strong>
-                                {item.kind === "tool" ? item.tool_name : item.node}
-                              </strong>
-                              <p>
-                                {item.kind === "tool"
-                                  ? `Permission: ${item.permission}`
-                                  : item.summary}
-                              </p>
+                              <strong>{item.title}</strong>
+                              <p>{item.summary}</p>
                             </div>
                             <span className="timeline-duration">
-                              <Clock3 size={13} /> {Math.round(item.duration_ms)} ms
+                              <Clock3 size={13} />{" "}
+                              {item.duration_ms === null
+                                ? "-"
+                                : `${String(Math.round(item.duration_ms))} ms`}
                             </span>
                           </article>
                         );
@@ -305,7 +404,11 @@ export function RunsPage() {
                     >
                       <RotateCcw size={16} /> {replay.isPending ? "Starting..." : "Start replay"}
                     </button>
-                    {replay.isError ? <p className="field-error" role="alert">Replay could not be started.</p> : null}
+                    {replay.isError ? (
+                      <p className="field-error" role="alert">
+                        {replayError(replay.error)}
+                      </p>
+                    ) : null}
                   </form>
                 ) : null}
               </>

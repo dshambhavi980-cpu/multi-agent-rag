@@ -10,7 +10,13 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
-import { type SyntheticEvent, useMemo, useState } from "react";
+import {
+  type SyntheticEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -121,11 +127,21 @@ export function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<Citation | null>(null);
   const [conversationsOpen, setConversationsOpen] = useState(false);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const awaitingReview = runState === "Awaiting human review";
   const headers = {
     Authorization: `Bearer ${session?.access_token ?? ""}`,
     "X-Workspace-ID": workspaceId ?? "",
   };
+
+  useLayoutEffect(() => {
+    const composer = composerRef.current;
+    if (!composer) return;
+    composer.style.height = "auto";
+    const height = Math.min(composer.scrollHeight, 176);
+    composer.style.height = `${String(height)}px`;
+    composer.style.overflowY = composer.scrollHeight > 176 ? "auto" : "hidden";
+  }, [question]);
 
   const conversations = useQuery({
     queryKey: ["conversations", workspaceId],
@@ -409,7 +425,8 @@ export function ChatPage() {
               <label className="sr-only" htmlFor="chat-question">Message DocPilot</label>
               <textarea
                 id="chat-question"
-                rows={2}
+                ref={composerRef}
+                rows={1}
                 maxLength={12000}
                 value={question}
                 disabled={awaitingReview}
