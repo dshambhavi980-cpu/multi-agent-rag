@@ -251,7 +251,7 @@ export function DocumentsPage() {
                 <td><span className={`document-status status-${document.status}`}>{document.status}</span></td>
                 <td>
                   <span className="index-version">
-                    v{document.index_version} · {formatStrategy(document.chunk_strategy)}
+                    v{document.index_version} - {formatStrategy(document.chunk_strategy)}
                   </span>
                 </td>
                 <td>{formatBytes(document.size_bytes)}</td>

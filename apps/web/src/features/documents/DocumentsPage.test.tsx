@@ -91,7 +91,7 @@ test("lists, refreshes, and uploads a supported document", async () => {
 
   expect(await screen.findByText("guide.md")).toBeInTheDocument();
   expect(screen.getByText("2.0 KB")).toBeInTheDocument();
-  expect(screen.getByText("v1 · heading recursive")).toBeInTheDocument();
+  expect(screen.getByText("v1 - heading recursive")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Refresh documents" }));
 
   const input = document.querySelector("input[type=file]");

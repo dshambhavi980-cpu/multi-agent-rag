@@ -647,26 +647,39 @@ select:focus-visible {
 }
 
 .document-table {
+  --document-columns: minmax(250px, 2fr) 92px 145px 82px 64px 100px;
+
+  display: block;
   width: 100%;
-  min-width: 720px;
+  min-width: 920px;
   border-collapse: collapse;
   text-align: left;
+}
+
+.document-table thead {
+  display: block;
+}
+
+.document-table thead tr,
+.document-virtual-body tr {
+  display: grid;
+  width: 100%;
+  grid-template-columns: var(--document-columns);
 }
 
 .document-virtual-body {
   position: relative;
   display: block;
-  min-width: 720px;
+  width: 100%;
+  min-width: 920px;
 }
 
 .document-virtual-body tr {
   position: absolute;
   left: 0;
-  display: grid;
-  width: 100%;
-  grid-template-columns: minmax(250px, 2fr) 92px 145px 82px 64px 100px;
 }
 
+.document-table th,
 .document-virtual-body td {
   display: flex;
   min-width: 0;

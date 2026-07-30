@@ -49,8 +49,8 @@ class Settings(BaseSettings):
     index_target_chars: int = Field(default=1800, ge=256, le=4000)
     index_overlap_chars: int = Field(default=0, ge=0, le=1000)
     index_version: int = Field(default=1, ge=1)
-    embedding_batch_size: int = Field(default=16, ge=1, le=100)
-    embedding_batch_delay_seconds: float = Field(default=0.8, ge=0, le=10)
+    embedding_batch_size: int = Field(default=64, ge=1, le=100)
+    embedding_batch_delay_seconds: float = Field(default=0.25, ge=0, le=10)
     embedding_dimensions: Literal[768] = 768
     embedding_timeout_seconds: float = Field(default=30, gt=0, le=120)
     embedding_max_retries: int = Field(default=5, ge=0, le=8)

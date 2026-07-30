@@ -22,8 +22,8 @@ class WorkerConfig:
     chunk_strategy: ChunkStrategy = "heading_recursive"
     chunk_target_chars: int = 1800
     chunk_overlap_chars: int = 0
-    embedding_batch_size: int = 16
-    embedding_batch_delay_seconds: float = 0.8
+    embedding_batch_size: int = 64
+    embedding_batch_delay_seconds: float = 0.25
 
 
 @dataclass(frozen=True)

@@ -7,6 +7,12 @@ from app.main import create_app
 from app.services.readiness import ReadinessRegistry, static_check
 
 
+def test_low_latency_ingestion_defaults(settings: Settings) -> None:
+    assert settings.embedding_batch_size == 64
+    assert settings.embedding_batch_delay_seconds == 0.25
+    assert settings.embedding_max_retries == 5
+
+
 async def test_health_reports_liveness_and_request_id(client: AsyncClient) -> None:
     response = await client.get("/health")
 
