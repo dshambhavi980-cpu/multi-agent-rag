@@ -295,6 +295,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
                     chunk_target_chars=resolved_settings.index_target_chars,
                     chunk_overlap_chars=resolved_settings.index_overlap_chars,
                     embedding_batch_size=resolved_settings.embedding_batch_size,
+                    embedding_batch_delay_seconds=(resolved_settings.embedding_batch_delay_seconds),
                 ),
             )
             worker.start()

@@ -128,9 +128,8 @@ test("renders cited history and streams a new message", async () => {
   fireEvent.change(screen.getByLabelText("Message DocPilot"), {
     target: { value: "How should I rotate it?" },
   });
-  fireEvent.change(screen.getByLabelText("Run mode"), {
-    target: { value: "agentic" },
-  });
+  fireEvent.click(screen.getByRole("button", { name: "Run mode" }));
+  fireEvent.click(screen.getByRole("option", { name: /Agentic/ }));
   fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
   await waitFor(() => {
@@ -144,8 +143,8 @@ test("renders cited history and streams a new message", async () => {
 
 test("creates a conversation and explains offline and cold-start failures", async () => {
   const view = renderWithProviders(<ChatPage />);
-  await screen.findByText("Emergency access");
-  fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+  await screen.findAllByText("Emergency access");
+  fireEvent.click(screen.getByRole("button", { name: "New chat" }));
   fireEvent.change(screen.getByLabelText("Message DocPilot"), {
     target: { value: "A new question" },
   });
@@ -176,7 +175,7 @@ test("locks the composer while an agent run awaits human review", async () => {
     },
   );
   renderWithProviders(<ChatPage />);
-  await screen.findByText("Emergency access");
+  await screen.findAllByText("Emergency access");
   fireEvent.change(screen.getByLabelText("Message DocPilot"), {
     target: { value: "Prepare a production deployment decision" },
   });
@@ -184,7 +183,7 @@ test("locks the composer while an agent run awaits human review", async () => {
 
   expect(await screen.findByRole("link", { name: /Open the review queue/ })).toBeVisible();
   expect(screen.getByLabelText("Message DocPilot")).toBeDisabled();
-  expect(screen.getByLabelText("Run mode")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Run mode" })).toBeDisabled();
   expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
   expect(
     mocks.requestJson.mock.calls.filter(([path]) => String(path).endsWith("/messages")),
@@ -199,7 +198,7 @@ test.each([
 ])("maps stream failures to useful recovery messages", async (failure, expected) => {
   mocks.streamSse.mockRejectedValueOnce(failure);
   renderWithProviders(<ChatPage />);
-  await screen.findByText("Emergency access");
+  await screen.findAllByText("Emergency access");
   fireEvent.change(screen.getByLabelText("Message DocPilot"), {
     target: { value: "Explain the policy" },
   });

@@ -8,12 +8,14 @@ import {
   HeartPulse,
   Menu,
   MessageSquareText,
+  PanelLeftClose,
   Settings,
   ShieldCheck,
   X,
 } from "lucide-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 
+import { SelectMenu } from "../components/SelectMenu";
 import { AuthGate } from "../features/auth/AuthGate";
 import { SystemOverview } from "../features/system/SystemOverview";
 import { WorkspaceGate } from "../features/workspaces/WorkspaceGate";
@@ -91,6 +93,9 @@ function Placeholder({ title }: { title: string }) {
 function AuthenticatedApp() {
   const { activeWorkspace, selectWorkspace, workspaces } = useWorkspace();
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const [desktopNavigationOpen, setDesktopNavigationOpen] = useState(
+    () => window.localStorage.getItem("docpilot:sidebar") !== "closed",
+  );
   const [pathname, setPathname] = useState(window.location.pathname);
 
   useEffect(() => {
@@ -122,17 +127,35 @@ function AuthenticatedApp() {
     pathname === "/memory" ? <MemoryPage /> :
     pathname === "/settings" ? <SettingsPage /> :
     <Placeholder title={routeTitles[pathname] ?? "Not found"} />;
+  const workspaceOptions = workspaces.map((workspace) => ({
+    value: workspace.id,
+    label: workspace.name,
+  }));
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${desktopNavigationOpen ? "" : " sidebar-collapsed"}`}>
       <aside
-        className={mobileNavigationOpen ? "sidebar sidebar-open" : "sidebar"}
+        className={`${mobileNavigationOpen ? "sidebar sidebar-open" : "sidebar"}${
+          desktopNavigationOpen ? "" : " sidebar-hidden"
+        }`}
       >
         <div className="brand-row">
           <span className="brand-mark" aria-hidden="true">
             D
           </span>
           <span className="brand-name">DocPilot</span>
+          <button
+            className="icon-button desktop-only"
+            type="button"
+            title="Collapse navigation"
+            aria-label="Collapse navigation"
+            onClick={() => {
+              setDesktopNavigationOpen(false);
+              window.localStorage.setItem("docpilot:sidebar", "closed");
+            }}
+          >
+            <PanelLeftClose size={19} />
+          </button>
           <button
             className="icon-button mobile-only"
             type="button"
@@ -184,30 +207,29 @@ function AuthenticatedApp() {
       <div className="workspace">
         <header className="topbar">
           <button
-            className="icon-button mobile-only"
+            className="icon-button navigation-toggle"
             type="button"
             aria-label="Open navigation"
             onClick={() => {
-              setMobileNavigationOpen(true);
+              if (window.innerWidth <= 800) {
+                setMobileNavigationOpen(true);
+              } else {
+                setDesktopNavigationOpen(true);
+                window.localStorage.setItem("docpilot:sidebar", "open");
+              }
             }}
           >
             <Menu size={20} />
           </button>
-          <label className="workspace-switcher">
-            <span className="sr-only">Active workspace</span>
-            <select
-              value={activeWorkspace?.id ?? ""}
-              onChange={(event) => {
-                selectWorkspace(event.target.value);
-              }}
-            >
-              {workspaces.map((workspace) => (
-                <option key={workspace.id} value={workspace.id}>
-                  {workspace.name}
-                </option>
-              ))}
-            </select>
-          </label>
+          {activeWorkspace ? (
+            <SelectMenu
+              compact
+              label="Active workspace"
+              value={activeWorkspace.id}
+              options={workspaceOptions}
+              onChange={selectWorkspace}
+            />
+          ) : null}
           <div
             className="user-avatar"
             aria-label="Guest session"
@@ -217,7 +239,7 @@ function AuthenticatedApp() {
           </div>
         </header>
 
-        <main className="main-content">
+        <main className={pathname === "/chat" ? "main-content main-content-chat" : "main-content"}>
           <Suspense fallback={<p className="table-message">Loading workspace view...</p>}>
             {routeContent}
           </Suspense>

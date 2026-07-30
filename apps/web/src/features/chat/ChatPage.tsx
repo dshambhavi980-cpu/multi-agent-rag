@@ -4,10 +4,12 @@ import {
   ChevronRight,
   CircleAlert,
   FileText,
+  History,
   LoaderCircle,
   MessageSquarePlus,
   Send,
   WifiOff,
+  X,
 } from "lucide-react";
 import { type SyntheticEvent, useMemo, useState } from "react";
 
@@ -17,6 +19,7 @@ import {
   streamSse,
   type SseEvent,
 } from "../../api/client";
+import { SelectMenu } from "../../components/SelectMenu";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useAuth } from "../auth/auth-context";
 import type { DocumentPage } from "../documents/documents.types";
@@ -95,6 +98,7 @@ export function ChatPage() {
   const [runState, setRunState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<Citation | null>(null);
+  const [conversationsOpen, setConversationsOpen] = useState(false);
   const awaitingReview = runState === "Awaiting human review";
   const headers = {
     Authorization: `Bearer ${session?.access_token ?? ""}`,
@@ -108,9 +112,11 @@ export function ChatPage() {
       requestJson<ConversationPage>("/v1/conversations", { headers }),
   });
   const activeId =
-    conversations.data?.items.find((item) => item.id === selectedId)?.id ??
-    conversations.data?.items[0]?.id ??
-    null;
+    selectedId === "new"
+      ? null
+      : (conversations.data?.items.find((item) => item.id === selectedId)?.id ??
+        conversations.data?.items[0]?.id ??
+        null);
   const detail = useQuery({
     queryKey: ["conversation", workspaceId, activeId],
     enabled: Boolean(session && workspaceId && activeId),
@@ -215,15 +221,28 @@ export function ChatPage() {
 
   return (
     <section className="chat-page" aria-labelledby="chat-title">
-      <div className="page-heading chat-heading">
-        <div>
-          <p className="eyebrow">Grounded workspace assistant</p>
-          <h1 id="chat-title">Chat</h1>
-        </div>
-        <button className="secondary-button" type="button" onClick={resetDraft}>
-          <MessageSquarePlus size={17} /> New conversation
+      <h1 className="sr-only" id="chat-title">Chat</h1>
+      <header className="chat-toolbar">
+        <button
+          className="chat-toolbar-button"
+          type="button"
+          aria-expanded={conversationsOpen}
+          onClick={() => {
+            setConversationsOpen(true);
+          }}
+        >
+          <History size={18} /> Conversations
         </button>
-      </div>
+        <span className="chat-title">
+          {activeId
+            ? (conversations.data?.items.find((item) => item.id === activeId)?.title ??
+              "Untitled conversation")
+            : "New conversation"}
+        </span>
+        <button className="chat-toolbar-button" type="button" onClick={resetDraft}>
+          <MessageSquarePlus size={18} /> New chat
+        </button>
+      </header>
 
       {!online ? (
         <div className="inline-notice notice-warning" role="alert">
@@ -233,7 +252,47 @@ export function ChatPage() {
       ) : null}
 
       <div className="chat-workspace">
-        <aside className="conversation-list" aria-label="Conversations">
+        <button
+          className={`conversation-backdrop${conversationsOpen ? " is-open" : ""}`}
+          type="button"
+          aria-label="Close conversations"
+          tabIndex={conversationsOpen ? 0 : -1}
+          onClick={() => {
+            setConversationsOpen(false);
+          }}
+        />
+        <aside
+          className={`conversation-drawer${conversationsOpen ? " is-open" : ""}`}
+          aria-label="Conversations"
+          aria-hidden={!conversationsOpen}
+        >
+          <div className="conversation-drawer-heading">
+            <div>
+              <strong>Conversations</strong>
+              <span>Continue a previous thread</span>
+            </div>
+            <button
+              className="icon-button"
+              type="button"
+              aria-label="Close conversations"
+              onClick={() => {
+                setConversationsOpen(false);
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <button
+            className="conversation-new"
+            type="button"
+            onClick={() => {
+              resetDraft();
+              setConversationsOpen(false);
+            }}
+          >
+            <MessageSquarePlus size={17} /> New conversation
+          </button>
+          <div className="conversation-list">
           {(conversations.data?.items ?? []).map((conversation) => (
             <button
               type="button"
@@ -244,6 +303,7 @@ export function ChatPage() {
                 setPendingQuestion(null);
                 setStreamed("");
                 setError(null);
+                setConversationsOpen(false);
               }}
             >
               <span>{conversation.title ?? "Untitled conversation"}</span>
@@ -254,6 +314,7 @@ export function ChatPage() {
           {!conversations.isLoading && !conversations.data?.items.length ? (
             <p>No conversations yet.</p>
           ) : null}
+          </div>
         </aside>
 
         <div className="chat-thread">
@@ -322,46 +383,6 @@ export function ChatPage() {
           </div>
 
           <form className="chat-composer" onSubmit={(event) => void send(event)}>
-            <div className="chat-options">
-              <label>
-                <span>Run mode</span>
-                <select
-                  value={mode}
-                  disabled={awaitingReview}
-                  onChange={(event) => {
-                    setMode(event.target.value as Mode);
-                  }}
-                >
-                  <option value="auto">Auto</option>
-                  <option value="simple">Fast RAG</option>
-                  <option value="agentic">Agentic</option>
-                </select>
-              </label>
-              <details className="document-picker">
-                <summary>
-                  <FileText size={15} /> {selectedDocuments.length || "All"} sources
-                </summary>
-                <div>
-                  {readyDocuments.map((document) => (
-                    <label key={document.id}>
-                      <input
-                        type="checkbox"
-                        checked={selectedDocuments.includes(document.id)}
-                        onChange={(event) => {
-                          setSelectedDocuments((current) =>
-                            event.target.checked
-                              ? [...current, document.id]
-                              : current.filter((id) => id !== document.id),
-                          );
-                        }}
-                      />
-                      <span>{document.title ?? document.filename}</span>
-                    </label>
-                  ))}
-                  {!readyDocuments.length ? <p>No indexed sources yet.</p> : null}
-                </div>
-              </details>
-            </div>
             <div className="composer-input">
               <label className="sr-only" htmlFor="chat-question">Message DocPilot</label>
               <textarea
@@ -394,6 +415,56 @@ export function ChatPage() {
               >
                 {sending ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}
               </button>
+            </div>
+            <div className="chat-options">
+              <SelectMenu
+                compact
+                label="Run mode"
+                value={mode}
+                disabled={awaitingReview}
+                onChange={setMode}
+                options={[
+                  {
+                    value: "auto",
+                    label: "Auto",
+                    description: "Choose the best path",
+                  },
+                  {
+                    value: "simple",
+                    label: "Fast RAG",
+                    description: "Direct grounded answer",
+                  },
+                  {
+                    value: "agentic",
+                    label: "Agentic",
+                    description: "Plan and use tools",
+                  },
+                ]}
+              />
+              <details className="document-picker">
+                <summary>
+                  <FileText size={15} /> {selectedDocuments.length || "All"} sources
+                </summary>
+                <div>
+                  {readyDocuments.map((document) => (
+                    <label key={document.id}>
+                      <input
+                        type="checkbox"
+                        checked={selectedDocuments.includes(document.id)}
+                        onChange={(event) => {
+                          setSelectedDocuments((current) =>
+                            event.target.checked
+                              ? [...current, document.id]
+                              : current.filter((id) => id !== document.id),
+                          );
+                        }}
+                      />
+                      <span>{document.title ?? document.filename}</span>
+                    </label>
+                  ))}
+                  {!readyDocuments.length ? <p>No indexed sources yet.</p> : null}
+                </div>
+              </details>
             </div>
           </form>
         </div>

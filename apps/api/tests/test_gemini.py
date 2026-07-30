@@ -1,4 +1,5 @@
 import math
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -70,8 +71,12 @@ async def test_query_embedding_uses_retrieval_query_task_without_title() -> None
     await instance.aclose()
 
 
-async def test_retries_rate_limit_then_succeeds() -> None:
+async def test_retries_rate_limit_then_succeeds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     instance = client(max_retries=1)
+    sleep = AsyncMock()
+    monkeypatch.setattr("app.infrastructure.gemini.asyncio.sleep", sleep)
     responses = [
         httpx.Response(429, headers={"Retry-After": "0"}),
         httpx.Response(200, json={"embeddings": [{"values": [1.0] * 768}]}),
@@ -82,6 +87,7 @@ async def test_retries_rate_limit_then_succeeds() -> None:
         transport=httpx.MockTransport(lambda request: responses.pop(0)),
     )
     assert len(await instance.embed_documents(["hello"])) == 1
+    sleep.assert_awaited_once_with(10.0)
     await instance.aclose()
 
 

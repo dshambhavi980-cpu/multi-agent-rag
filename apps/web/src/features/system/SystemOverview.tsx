@@ -10,7 +10,7 @@ import {
 import { useHealth, useReadiness, useVersion } from "./useSystemStatus";
 
 function StatusDot({ status }: { status: "ready" | "degraded" | "unavailable" }) {
-  return <span className={`status-dot status-${status}`} aria-hidden="true" />;
+  return <span className={`status-dot status-dot-${status}`} aria-hidden="true" />;
 }
 
 export function SystemOverview() {

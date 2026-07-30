@@ -1,5 +1,6 @@
 import asyncio
 import math
+from contextlib import suppress
 from dataclasses import dataclass, field
 from secrets import randbelow
 from typing import Any, cast
@@ -113,14 +114,17 @@ class GeminiEmbeddingClient:
         raise AssertionError("Embedding retry loop exited unexpectedly.")
 
     def _retry_delay(self, response: httpx.Response, attempt: int) -> float:
+        delay: float | None = None
         retry_after = response.headers.get("Retry-After")
         if retry_after:
-            try:
-                return min(float(retry_after), 60)
-            except ValueError:
-                pass
-        jitter = 0.5 + randbelow(1000) / 1000
-        return float(min(self.retry_base_seconds * (2**attempt) * jitter, 60.0))
+            with suppress(ValueError):
+                delay = float(retry_after)
+        if delay is None:
+            jitter = 0.5 + randbelow(1000) / 1000
+            delay = self.retry_base_seconds * (2**attempt) * jitter
+        if response.status_code == 429:
+            delay = max(delay, 10.0 * (attempt + 1))
+        return float(min(delay, 60.0))
 
     def _normalize(self, values: list[float]) -> list[float]:
         if len(values) != self.dimensions:

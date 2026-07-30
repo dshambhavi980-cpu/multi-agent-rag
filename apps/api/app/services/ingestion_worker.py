@@ -23,6 +23,7 @@ class WorkerConfig:
     chunk_target_chars: int = 1800
     chunk_overlap_chars: int = 0
     embedding_batch_size: int = 16
+    embedding_batch_delay_seconds: float = 0.8
 
 
 @dataclass(frozen=True)
@@ -144,6 +145,8 @@ class IngestionWorker:
             title = cast(str | None, document.get("title")) or str(document["filename"])
             batch_size = self.config.embedding_batch_size
             for offset in range(0, len(chunks), batch_size):
+                if offset > 0 and self.config.embedding_batch_delay_seconds > 0:
+                    await asyncio.sleep(self.config.embedding_batch_delay_seconds)
                 batch = chunks[offset : offset + batch_size]
                 vectors = await self.embeddings.embed_documents(
                     [chunk.content for chunk in batch], title=title

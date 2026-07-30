@@ -50,9 +50,10 @@ class Settings(BaseSettings):
     index_overlap_chars: int = Field(default=0, ge=0, le=1000)
     index_version: int = Field(default=1, ge=1)
     embedding_batch_size: int = Field(default=16, ge=1, le=100)
+    embedding_batch_delay_seconds: float = Field(default=0.8, ge=0, le=10)
     embedding_dimensions: Literal[768] = 768
     embedding_timeout_seconds: float = Field(default=30, gt=0, le=120)
-    embedding_max_retries: int = Field(default=2, ge=0, le=5)
+    embedding_max_retries: int = Field(default=5, ge=0, le=8)
     embedding_retry_base_seconds: float = Field(default=1, gt=0, le=30)
     query_embedding_cache_ttl_seconds: int = Field(default=86400, ge=60, le=604800)
     retrieval_cache_ttl_seconds: int = Field(default=900, ge=0, le=3600)

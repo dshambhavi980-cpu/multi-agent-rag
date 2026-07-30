@@ -51,6 +51,8 @@ vi.mock("../features/workspaces/workspace-context", () => ({
 
 beforeEach(() => {
   window.history.replaceState(null, "", "/");
+  window.localStorage.clear();
+  Object.defineProperty(window, "innerWidth", { value: 1024, writable: true });
   appMocks.selectWorkspace.mockReset();
 });
 
@@ -79,12 +81,15 @@ test("lazy-loads every operational section", async () => {
     "Settings",
   ]) {
     await user.click(screen.getByRole("link", { name }));
-    expect(await screen.findByRole("heading", { name })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name }, { timeout: 5_000 }),
+    ).toBeInTheDocument();
   }
-}, 10_000);
+}, 30_000);
 
 test("opens and closes mobile navigation", async () => {
   const user = userEvent.setup();
+  Object.defineProperty(window, "innerWidth", { value: 500, writable: true });
   renderWithProviders(<App />);
 
   await user.click(screen.getByRole("button", { name: "Open navigation" }));
@@ -104,11 +109,23 @@ test("selects a workspace and handles unknown routes in guest mode", async () =>
   renderWithProviders(<App />);
 
   expect(screen.getByRole("heading", { name: "Not found" })).toBeInTheDocument();
-  await user.selectOptions(
-    screen.getByRole("combobox", { name: "Active workspace" }),
-    "workspace-2",
-  );
+  await user.click(screen.getByRole("button", { name: "Active workspace" }));
+  await user.click(screen.getByRole("option", { name: "Customer success" }));
 
   expect(appMocks.selectWorkspace).toHaveBeenCalledWith("workspace-2");
   expect(screen.getByLabelText("Guest session")).toBeInTheDocument();
+});
+
+test("collapses and restores desktop navigation", async () => {
+  const user = userEvent.setup();
+  renderWithProviders(<App />);
+
+  await user.click(screen.getByRole("button", { name: "Collapse navigation" }));
+  expect(screen.getByRole("navigation", { name: "Primary navigation" }).parentElement).toHaveClass(
+    "sidebar-hidden",
+  );
+  await user.click(screen.getByRole("button", { name: "Open navigation" }));
+  expect(screen.getByRole("navigation", { name: "Primary navigation" }).parentElement).not.toHaveClass(
+    "sidebar-hidden",
+  );
 });

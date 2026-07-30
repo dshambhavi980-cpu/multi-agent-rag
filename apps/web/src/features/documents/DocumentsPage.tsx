@@ -69,7 +69,7 @@ export function DocumentsPage() {
   const documentVirtualizer = useVirtualizer({
     count: documentItems.length,
     getScrollElement: () => listRef.current,
-    estimateSize: () => 54,
+    estimateSize: () => 68,
     overscan: 8,
     initialRect: { width: 800, height: 480 },
   });
@@ -79,7 +79,7 @@ export function DocumentsPage() {
     : documentItems.slice(0, 20).map((document, index) => ({
         index,
         key: document.id,
-        start: index * 54,
+        start: index * 68,
       }));
 
   useEffect(() => {
@@ -240,7 +240,12 @@ export function DocumentsPage() {
                 <td>
                   <span className="document-name">
                     <FileCheck2 size={17} />
-                    <span>{document.title ?? document.filename}</span>
+                    <span>
+                      <span>{document.title ?? document.filename}</span>
+                      {document.failure_code ? (
+                        <small>{formatStrategy(document.failure_code)}</small>
+                      ) : null}
+                    </span>
                   </span>
                 </td>
                 <td><span className={`document-status status-${document.status}`}>{document.status}</span></td>
