@@ -35,11 +35,11 @@ from app.services.content_security import sanitize_untrusted_text
 from app.services.memory import MemoryService
 from app.services.retrieval import HybridRetrievalService
 
-PROMPT_VERSION = "rag-system-v1+answer-v1+memory-v1+injection-v1"
+PROMPT_VERSION = "rag-system-v2+answer-v2+memory-v1+injection-v1"
 AGENT_PROMPT_VERSION = "agent-system-v1+memory-v1+injection-v1"
 PROMPT_DIR = Path(__file__).resolve().parents[1] / "prompts"
-SYSTEM_PROMPT = (PROMPT_DIR / "rag_system_v1.txt").read_text(encoding="utf-8").strip()
-ANSWER_PROMPT = (PROMPT_DIR / "rag_answer_v1.txt").read_text(encoding="utf-8").strip()
+SYSTEM_PROMPT = (PROMPT_DIR / "rag_system_v2.txt").read_text(encoding="utf-8").strip()
+ANSWER_PROMPT = (PROMPT_DIR / "rag_answer_v2.txt").read_text(encoding="utf-8").strip()
 CITATION_PATTERN = re.compile(r"\[(C[1-9][0-9]*)\]")
 SEGMENT_BOUNDARY = re.compile(r"(?:[.!?](?:\s+|$)|\n+)")
 TERMINAL_STATUSES = {"completed", "failed", "cancelled", "timed_out"}
@@ -57,7 +57,7 @@ class StreamingGenerationClient(Protocol):
 
 @dataclass(frozen=True)
 class RagConfig:
-    evidence_limit: int = 6
+    evidence_limit: int = 4
     candidate_count: int = 30
     timeout_seconds: float = 30
     insufficient_semantic_threshold: float = 0.25
@@ -1065,14 +1065,14 @@ class GroundedRagService:
                     run_id,
                     workspace_id,
                     "answer.delta",
-                    {"delta": segment + " "},
+                    {"delta": segment + "\n"},
                 )
                 await self._transition(
                     run_id,
                     workspace_id,
                     "running",
                     "generation",
-                    accumulated_text=" ".join(accepted_segments),
+                    accumulated_text="\n".join(accepted_segments),
                 )
             used.update(cited)
         trailing, _ = _split_complete_segments(buffer, final=True)
@@ -1090,7 +1090,7 @@ class GroundedRagService:
                 run_id,
                 workspace_id,
                 "answer.delta",
-                {"delta": segment + " "},
+                {"delta": segment + "\n"},
             )
         used.update(cited)
         coverage = accepted / reviewed if reviewed else 0
@@ -1109,7 +1109,7 @@ class GroundedRagService:
                 coverage=coverage,
                 review_score=review_score,
             )
-        content = " ".join(accepted_segments)
+        content = "\n".join(accepted_segments)
         if first_delta_at is not None:
             get_logger().info(
                 "rag_first_validated_token",

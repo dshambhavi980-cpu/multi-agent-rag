@@ -120,7 +120,12 @@ beforeEach(() => {
 test("renders cited history and streams a new message", async () => {
   renderWithProviders(<ChatPage />);
 
-  expect(await screen.findByText("Rotate it")).toBeInTheDocument();
+  expect(
+    await screen.findByText(
+      (_content, element) =>
+        element?.tagName === "P" && element.textContent === "Rotate it C1.",
+    ),
+  ).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /Open source C1/ }));
   expect(await screen.findByRole("dialog", { name: "Operations" })).toBeInTheDocument();
   fireEvent.keyDown(window, { key: "Escape" });

@@ -18,6 +18,7 @@ from app.models.documents import (
     CreateUploadUrlResponse,
     Document,
     DocumentPage,
+    DocumentSourceAccess,
     IngestionAccepted,
     IngestionJob,
     ReindexRequest,
@@ -235,6 +236,41 @@ async def get_document(
         workspace_id=workspace_id,
         access_token=auth.access_token,
         data=data,
+    )
+
+
+@router.get(
+    "/documents/{document_id}/source-url",
+    operation_id="getDocumentSourceUrl",
+    response_model=DocumentSourceAccess,
+)
+async def get_document_source_url(
+    document_id: UUID,
+    request: Request,
+    workspace_id: Annotated[UUID, Header(alias="X-Workspace-ID")],
+    auth: Annotated[AuthContext, Depends(get_auth_context)],
+    page: Annotated[int | None, Query(ge=1)] = None,
+) -> DocumentSourceAccess:
+    await require_workspace_access(workspace_id, request, auth)
+    data = cast(SupabaseDataClient, request.app.state.supabase_data)
+    document = await _get_workspace_document(
+        document_id=document_id,
+        workspace_id=workspace_id,
+        access_token=auth.access_token,
+        data=data,
+    )
+    storage = cast(SupabaseStorageClient, request.app.state.supabase_storage)
+    expires_in = 300
+    signed_url = await storage.create_signed_download(
+        document.object_path,
+        auth.access_token,
+        expires_in=expires_in,
+    )
+    if page is not None and document.content_type == "application/pdf":
+        signed_url = f"{signed_url}#page={page}"
+    return DocumentSourceAccess(
+        url=signed_url,
+        expires_at=datetime.now(UTC) + timedelta(seconds=expires_in),
     )
 
 

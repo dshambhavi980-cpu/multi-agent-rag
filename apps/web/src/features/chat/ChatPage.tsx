@@ -3,7 +3,6 @@ import {
   Bot,
   ChevronRight,
   CircleAlert,
-  FileText,
   History,
   LoaderCircle,
   MessageSquarePlus,
@@ -12,6 +11,9 @@ import {
   X,
 } from "lucide-react";
 import { type SyntheticEvent, useMemo, useState } from "react";
+import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
 
 import {
   ApiClientError,
@@ -20,6 +22,7 @@ import {
   type SseEvent,
 } from "../../api/client";
 import { SelectMenu } from "../../components/SelectMenu";
+import { SourceMenu } from "../../components/SourceMenu";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useAuth } from "../auth/auth-context";
 import type { DocumentPage } from "../documents/documents.types";
@@ -56,28 +59,45 @@ function AnswerContent({
   onCitation: (citation: Citation) => void;
 }) {
   const citationMap = new Map(citations.map((citation) => [citation.citation_id, citation]));
+  const markdown = content.replace(
+    /\[(C[1-9][0-9]*)\]/g,
+    (_match, citationId: string) => `[${citationId}](citation:${citationId})`,
+  );
   return (
-    <p>
-      {content.split(/(\[C[1-9][0-9]*\])/g).map((part, index) => {
-        const id = part.match(/^\[(C[1-9][0-9]*)\]$/)?.[1];
-        const citation = id ? citationMap.get(id) : undefined;
-        return citation ? (
-          <button
-            className="inline-citation"
-            type="button"
-            key={`${citation.citation_id}-${String(index)}`}
-            aria-label={`Open source ${citation.citation_id}: ${citation.label}`}
-            onClick={() => {
-              onCitation(citation);
-            }}
-          >
-            {citation.citation_id}
-          </button>
-        ) : (
-          <span key={`${part.slice(0, 12)}-${String(index)}`}>{part}</span>
-        );
-      })}
-    </p>
+    <div className="message-markdown">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkBreaks]}
+        urlTransform={(url) =>
+          url.startsWith("citation:") ? url : defaultUrlTransform(url)
+        }
+        components={{
+          a: ({ href, children }) => {
+            const citationId = href?.startsWith("citation:")
+              ? href.slice("citation:".length)
+              : null;
+            const citation = citationId ? citationMap.get(citationId) : undefined;
+            return citation ? (
+              <button
+                className="inline-citation"
+                type="button"
+                aria-label={`Open source ${citation.citation_id}: ${citation.label}`}
+                onClick={() => {
+                  onCitation(citation);
+                }}
+              >
+                {citation.citation_id}
+              </button>
+            ) : (
+              <a href={href} target="_blank" rel="noreferrer">
+                {children}
+              </a>
+            );
+          },
+        }}
+      >
+        {markdown}
+      </ReactMarkdown>
+    </div>
   );
 }
 
@@ -432,30 +452,15 @@ export function ChatPage() {
                   },
                 ]}
               />
-              <details className="document-picker">
-                <summary>
-                  <FileText size={15} /> {selectedDocuments.length || "All"} sources
-                </summary>
-                <div>
-                  {readyDocuments.map((document) => (
-                    <label key={document.id}>
-                      <input
-                        type="checkbox"
-                        checked={selectedDocuments.includes(document.id)}
-                        onChange={(event) => {
-                          setSelectedDocuments((current) =>
-                            event.target.checked
-                              ? [...current, document.id]
-                              : current.filter((id) => id !== document.id),
-                          );
-                        }}
-                      />
-                      <span>{document.title ?? document.filename}</span>
-                    </label>
-                  ))}
-                  {!readyDocuments.length ? <p>No indexed sources yet.</p> : null}
-                </div>
-              </details>
+              <SourceMenu
+                options={readyDocuments.map((document) => ({
+                  id: document.id,
+                  label: document.title ?? document.filename,
+                }))}
+                selected={selectedDocuments}
+                disabled={awaitingReview}
+                onChange={setSelectedDocuments}
+              />
               <button
                 className="send-button"
                 type="submit"
@@ -472,6 +477,7 @@ export function ChatPage() {
 
       {source && session && workspaceId ? (
         <SourceViewer
+          key={`${source.document_id}:${source.page ? String(source.page) : "document"}`}
           citation={source}
           accessToken={session.access_token}
           workspaceId={workspaceId}

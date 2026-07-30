@@ -137,6 +137,13 @@ class DocumentPage(BaseModel):
     next_cursor: str | None = None
 
 
+class DocumentSourceAccess(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    expires_at: datetime
+
+
 class ReindexRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

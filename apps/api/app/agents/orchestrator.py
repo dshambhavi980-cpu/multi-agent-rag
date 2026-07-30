@@ -36,7 +36,7 @@ class AgentConfig:
     max_subtasks: int = 3
     max_concurrent_retrievals: int = 3
     timeout_seconds: float = 60
-    evidence_limit: int = 6
+    evidence_limit: int = 4
     candidate_count: int = 30
     context_char_budget: int = 18000
     output_char_budget: int = 12000

@@ -177,7 +177,7 @@ export function EvaluationsPage() {
           if (selectedVariants.length) create.mutate();
         }}
       >
-        <div>
+        <div className="evaluation-launcher-intro">
           <h2>Run comparison</h2>
           <p>Retrieval modes are inexpensive. Answer modes consume free Gemini quota.</p>
         </div>
@@ -202,25 +202,27 @@ export function EvaluationsPage() {
             ))}
           </div>
         </fieldset>
-        <label className="evaluation-case-count">
-          Cases
-          <input
-            type="number"
-            min={1}
-            max={50}
-            value={maxCases}
-            onChange={(event) => {
-              setMaxCases(Math.min(50, Math.max(1, Number(event.target.value))));
-            }}
-          />
-        </label>
-        <button
-          className="primary-button"
-          type="submit"
-          disabled={!selectedVariants.length || create.isPending}
-        >
-          <Play size={16} /> {create.isPending ? "Starting..." : "Run evaluation"}
-        </button>
+        <div className="evaluation-run-controls">
+          <label className="evaluation-case-count">
+            Cases
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={maxCases}
+              onChange={(event) => {
+                setMaxCases(Math.min(50, Math.max(1, Number(event.target.value))));
+              }}
+            />
+          </label>
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={!selectedVariants.length || create.isPending}
+          >
+            <Play size={16} /> {create.isPending ? "Starting..." : "Run evaluation"}
+          </button>
+        </div>
         {create.isError ? (
           <p className="field-error" role="alert">Evaluation could not be started.</p>
         ) : null}

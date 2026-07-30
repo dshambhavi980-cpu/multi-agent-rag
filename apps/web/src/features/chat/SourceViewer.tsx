@@ -4,6 +4,20 @@ import { useEffect, useState } from "react";
 import { API_BASE_URL } from "../../api/client";
 import type { Citation } from "./chat.types";
 
+type SourceAccess = {
+  url: string;
+  expires_at: string;
+};
+
+const sourceCache = new Map<string, SourceAccess>();
+
+function cachedSource(workspaceId: string, sourceUrl: string): string | null {
+  const cached = sourceCache.get(`${workspaceId}:${sourceUrl}`);
+  return cached && Date.parse(cached.expires_at) > Date.now() + 10_000
+    ? cached.url
+    : null;
+}
+
 type Props = {
   citation: Citation;
   accessToken: string;
@@ -12,15 +26,26 @@ type Props = {
 };
 
 export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Props) {
-  const [source, setSource] = useState<string | null>(null);
+  const [source, setSource] = useState<string | null>(() =>
+    cachedSource(workspaceId, citation.source_url),
+  );
   const [error, setError] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
-    let objectUrl: string | null = null;
+    const cacheKey = `${workspaceId}:${citation.source_url}`;
+    if (cachedSource(workspaceId, citation.source_url)) {
+      return () => {
+        controller.abort();
+      };
+    }
     const load = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}${citation.source_url}`, {
+        const sourceUrlPath = citation.source_url.replace(
+          /\/source(?=\?|$)/,
+          "/source-url",
+        );
+        const response = await fetch(`${API_BASE_URL}${sourceUrlPath}`, {
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "X-Workspace-ID": workspaceId,
@@ -28,10 +53,10 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
           signal: controller.signal,
         });
         if (!response.ok) throw new Error("Source unavailable");
-        objectUrl = URL.createObjectURL(await response.blob());
-        setSource(
-          citation.page ? `${objectUrl}#page=${String(citation.page)}` : objectUrl,
-        );
+        const access = (await response.json()) as SourceAccess;
+        sourceCache.set(cacheKey, access);
+        setSource(access.url);
+        setError(false);
       } catch {
         if (!controller.signal.aborted) setError(true);
       }
@@ -39,9 +64,6 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
     void load();
     return () => {
       controller.abort();
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
     };
   }, [accessToken, citation, workspaceId]);
 

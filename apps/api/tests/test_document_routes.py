@@ -112,6 +112,7 @@ class Data:
 
 class Storage:
     removed: str | None = None
+    download_expiry: int | None = None
 
     async def aclose(self) -> None:
         return None
@@ -129,7 +130,7 @@ class Storage:
     async def create_signed_download(self, path: str, token: str, *, expires_in: int = 60) -> str:
         assert path == PATH
         assert token == "token"
-        assert expires_in == 60
+        self.download_expiry = expires_in
         return "https://signed.example/document"
 
     async def remove(self, path: str) -> None:
@@ -238,6 +239,21 @@ async def test_get_document_and_open_exact_source(client: AsyncClient) -> None:
     )
     assert source.status_code == 307
     assert source.headers["location"] == "https://signed.example/document"
+    assert client._transport.app.state.supabase_storage.download_expiry == 60  # type: ignore[attr-defined]
+
+
+async def test_get_short_lived_source_url_without_downloading_file(client: AsyncClient) -> None:
+    configure(client)
+
+    response = await client.get(
+        f"/v1/documents/{DOCUMENT_ID}/source-url?page=3",
+        headers=headers(),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["url"] == "https://signed.example/document"
+    assert response.json()["expires_at"]
+    assert client._transport.app.state.supabase_storage.download_expiry == 300  # type: ignore[attr-defined]
 
 
 async def test_document_source_rejects_other_workspace(client: AsyncClient) -> None:

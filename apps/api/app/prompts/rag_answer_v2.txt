@@ -1,0 +1,8 @@
+Question:
+{question}
+
+Evidence:
+{context}
+
+Write a concise, structured Markdown answer. Use bullets or numbered steps when
+there is more than one point. Follow the system citation rules exactly.

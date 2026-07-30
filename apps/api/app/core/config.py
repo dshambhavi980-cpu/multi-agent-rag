@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     retrieval_dense_weight: float = Field(default=1, ge=0, le=10)
     retrieval_sparse_weight: float = Field(default=1, ge=0, le=10)
     retrieval_duplicate_threshold: float = Field(default=0.92, ge=0.8, le=1)
-    rag_evidence_limit: int = Field(default=6, ge=1, le=10)
+    rag_evidence_limit: int = Field(default=4, ge=1, le=10)
     rag_candidate_count: int = Field(default=30, ge=10, le=100)
     rag_timeout_seconds: float = Field(default=45, gt=1, le=120)
     rag_insufficient_semantic_threshold: float = Field(default=0.25, ge=0, le=1)
@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     generation_timeout_seconds: float = Field(default=30, gt=1, le=120)
     generation_max_retries: int = Field(default=1, ge=0, le=3)
     generation_retry_base_seconds: float = Field(default=0.5, gt=0, le=10)
-    generation_max_output_tokens: int = Field(default=1024, ge=64, le=4096)
+    generation_max_output_tokens: int = Field(default=640, ge=64, le=4096)
     gemini_api_key: SecretStr | None = Field(default=None, validation_alias="GEMINI_API_KEY")
     gemini_chat_model: str = Field(
         default="gemini-3.1-flash-lite",

@@ -218,6 +218,36 @@ async def test_grounded_run_persists_only_allowed_citations() -> None:
     assert events[-1] == "run.completed"
 
 
+async def test_grounded_run_preserves_markdown_list_lines() -> None:
+    admin = Admin()
+    instance = service(
+        admin,
+        retrieval_response(),
+        Generation(
+            [
+                "- Rotate the emergency token [C1].\n",
+                "- Record an audit event [C1].",
+            ]
+        ),
+    )
+
+    await execute(instance)
+
+    complete = next(payload for name, payload in admin.calls if name == "complete_rag_run")
+    assert complete["p_content"] == (
+        "- Rotate the emergency token [C1].\n- Record an audit event [C1]."
+    )
+    deltas = [
+        payload["p_payload"]["delta"]
+        for name, payload in admin.calls
+        if name == "append_rag_run_event" and payload["p_event_type"] == "answer.delta"
+    ]
+    assert deltas == [
+        "- Rotate the emergency token [C1].\n",
+        "- Record an audit event [C1].\n",
+    ]
+
+
 async def test_missing_or_invalid_evidence_returns_controlled_fallback() -> None:
     admin = Admin()
     generation = Generation(["An unsupported answer [C9]."])
