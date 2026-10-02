@@ -388,7 +388,8 @@ test("opens conversation search modal, filters items, and selects a thread", asy
   expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
 
   fireEvent.click(convBtn);
-  const newChatInModal = within(modal).getByRole("button", { name: "New chat" });
+  const activeModal = await screen.findByRole("dialog", { name: "Conversations" });
+  const newChatInModal = within(activeModal).getByRole("button", { name: "New chat" });
   fireEvent.click(newChatInModal);
   expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
 });
