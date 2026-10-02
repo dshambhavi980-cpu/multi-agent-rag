@@ -1,16 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Check,
-  Database,
-  FileStack,
-  Gauge,
-  Laptop,
-  MessageSquareText,
-  Moon,
-  Save,
-  ShieldCheck,
-  Sun,
-} from "lucide-react";
+  Activity01Icon,
+  Comment01Icon,
+  ComputerIcon,
+  Database01Icon,
+  File02Icon,
+  FloppyDiskIcon,
+  Moon02Icon,
+  ShieldCheckIcon,
+  Sun01Icon,
+  Tick02Icon,
+} from "@hugeicons/core-free-icons";
 import { type SyntheticEvent, useState } from "react";
 
 import { requestJson } from "../../api/client";
@@ -103,7 +104,11 @@ export function SettingsPage() {
                   type="submit"
                   disabled={rename.isPending || name.trim() === activeWorkspace?.name}
                 >
-                  {rename.isSuccess ? <Check size={17} /> : <Save size={17} />}
+                  {rename.isSuccess ? (
+                    <HugeiconsIcon icon={Tick02Icon} size={17} strokeWidth={2} />
+                  ) : (
+                    <HugeiconsIcon icon={FloppyDiskIcon} size={17} strokeWidth={2} />
+                  )}
                   {rename.isSuccess ? "Saved" : "Save"}
                 </button>
               </div>
@@ -133,7 +138,7 @@ export function SettingsPage() {
                   setTheme("light");
                 }}
               >
-                <Sun size={18} aria-hidden="true" />
+                <HugeiconsIcon icon={Sun01Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
                 <span>Light</span>
               </button>
               <button
@@ -145,7 +150,7 @@ export function SettingsPage() {
                   setTheme("dark");
                 }}
               >
-                <Moon size={18} aria-hidden="true" />
+                <HugeiconsIcon icon={Moon02Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
                 <span>Dark</span>
               </button>
               <button
@@ -157,7 +162,7 @@ export function SettingsPage() {
                   setTheme("system");
                 }}
               >
-                <Laptop size={18} aria-hidden="true" />
+                <HugeiconsIcon icon={ComputerIcon} size={18} strokeWidth={1.8} aria-hidden="true" />
                 <span>System</span>
               </button>
             </div>
@@ -176,14 +181,32 @@ export function SettingsPage() {
           {data ? (
             <>
               <div className="usage-grid">
-                <div><FileStack size={18} /><span>Documents</span><strong>{data.documents}</strong></div>
-                <div><MessageSquareText size={18} /><span>Conversations</span><strong>{data.conversations}</strong></div>
-                <div><Gauge size={18} /><span>Runs</span><strong>{data.runs}</strong></div>
-                <div><ShieldCheck size={18} /><span>Reviews</span><strong>{data.approvals}</strong></div>
+                <div>
+                  <HugeiconsIcon icon={File02Icon} size={18} strokeWidth={1.8} />
+                  <span>Documents</span>
+                  <strong>{data.documents}</strong>
+                </div>
+                <div>
+                  <HugeiconsIcon icon={Comment01Icon} size={18} strokeWidth={1.8} />
+                  <span>Conversations</span>
+                  <strong>{data.conversations}</strong>
+                </div>
+                <div>
+                  <HugeiconsIcon icon={Activity01Icon} size={18} strokeWidth={1.8} />
+                  <span>Runs</span>
+                  <strong>{data.runs}</strong>
+                </div>
+                <div>
+                  <HugeiconsIcon icon={ShieldCheckIcon} size={18} strokeWidth={1.8} />
+                  <span>Reviews</span>
+                  <strong>{data.approvals}</strong>
+                </div>
               </div>
               <div className="storage-meter">
                 <div>
-                  <span><Database size={16} /> Document storage</span>
+                  <span>
+                    <HugeiconsIcon icon={Database01Icon} size={16} strokeWidth={1.8} /> Document storage
+                  </span>
                   <strong>{formatBytes(data.document_bytes)} / 35 MB</strong>
                 </div>
                 <progress value={storagePercent} max={100}>

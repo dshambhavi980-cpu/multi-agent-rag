@@ -1,11 +1,12 @@
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Activity,
-  CircleAlert,
-  CloudCog,
-  Database,
-  RefreshCw,
-  Server,
-} from "lucide-react";
+  Activity01Icon,
+  Alert01Icon,
+  CloudServerIcon,
+  Database01Icon,
+  RefreshIcon,
+  ServerIcon,
+} from "@hugeicons/core-free-icons";
 
 import { useHealth, useReadiness, useVersion } from "./useSystemStatus";
 
@@ -29,7 +30,7 @@ export function SystemOverview() {
   if (loading) {
     return (
       <section className="system-message" aria-live="polite">
-        <RefreshCw className="spin" size={24} aria-hidden="true" />
+        <HugeiconsIcon icon={RefreshIcon} className="spin" size={24} strokeWidth={1.8} aria-hidden="true" />
         <h1>Starting service</h1>
         <p>Connecting to the API and checking its dependencies.</p>
       </section>
@@ -39,11 +40,11 @@ export function SystemOverview() {
   if (failed) {
     return (
       <section className="system-message system-message-error" role="alert">
-        <CircleAlert size={26} aria-hidden="true" />
+        <HugeiconsIcon icon={Alert01Icon} size={26} strokeWidth={1.8} aria-hidden="true" />
         <h1>API unreachable</h1>
         <p>The free backend may be waking up. Retrying automatically every 10 seconds.</p>
         <button className="primary-button" type="button" onClick={refresh}>
-          <RefreshCw size={17} aria-hidden="true" />
+          <HugeiconsIcon icon={RefreshIcon} size={17} strokeWidth={1.8} aria-hidden="true" />
           Retry
         </button>
       </section>
@@ -62,7 +63,7 @@ export function SystemOverview() {
           <h1>System overview</h1>
         </div>
         <button className="icon-button bordered" type="button" onClick={refresh}>
-          <RefreshCw size={18} aria-hidden="true" />
+          <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} aria-hidden="true" />
           <span className="sr-only">Refresh status</span>
         </button>
       </div>
@@ -85,17 +86,17 @@ export function SystemOverview() {
 
       <section className="metric-grid" aria-label="Runtime details">
         <article className="metric-panel">
-          <Server size={20} aria-hidden="true" />
+          <HugeiconsIcon icon={ServerIcon} size={20} strokeWidth={1.8} aria-hidden="true" />
           <p>API release</p>
           <strong>{release}</strong>
         </article>
         <article className="metric-panel">
-          <CloudCog size={20} aria-hidden="true" />
+          <HugeiconsIcon icon={CloudServerIcon} size={20} strokeWidth={1.8} aria-hidden="true" />
           <p>Environment</p>
           <strong>{environment}</strong>
         </article>
         <article className="metric-panel">
-          <Activity size={20} aria-hidden="true" />
+          <HugeiconsIcon icon={Activity01Icon} size={20} strokeWidth={1.8} aria-hidden="true" />
           <p>Process</p>
           <strong>{health.data.status}</strong>
         </article>
@@ -112,7 +113,7 @@ export function SystemOverview() {
           {Object.entries(readiness.data.dependencies).map(([name, state]) => (
             <div className="dependency-row" key={name}>
               <div className="dependency-name">
-                <Database size={17} aria-hidden="true" />
+                <HugeiconsIcon icon={Database01Icon} size={17} strokeWidth={1.8} aria-hidden="true" />
                 <span>{name}</span>
               </div>
               <div className="dependency-state">

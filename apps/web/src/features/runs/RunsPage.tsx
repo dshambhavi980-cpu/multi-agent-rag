@@ -1,15 +1,16 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Bot,
-  CheckCircle2,
-  CircleAlert,
-  Clock3,
-  RefreshCw,
-  RotateCcw,
-  Search,
-  Wrench,
-} from "lucide-react";
+  Alert01Icon,
+  BotIcon,
+  CheckmarkCircle01Icon,
+  Clock01Icon,
+  RefreshIcon,
+  RotateCcwIcon,
+  Search01Icon,
+  Wrench01Icon,
+} from "@hugeicons/core-free-icons";
 import { useMemo, useRef, useState } from "react";
 
 import { ApiClientError, requestJson } from "../../api/client";
@@ -222,19 +223,19 @@ export function RunsPage() {
           title="Refresh runs"
           onClick={() => void runs.refetch()}
         >
-          <RefreshCw size={18} />
+          <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} />
         </button>
       </div>
 
       {runs.isLoading ? <p className="table-message">Loading runs...</p> : null}
       {runs.isError ? (
         <div className="inline-notice notice-error" role="alert">
-          <CircleAlert size={18} /> Run history could not be loaded.
+          <HugeiconsIcon icon={Alert01Icon} size={18} strokeWidth={1.8} /> Run history could not be loaded.
         </div>
       ) : null}
       {!runs.isLoading && !runs.data?.items.length ? (
         <div className="memory-empty">
-          <Bot size={25} />
+          <HugeiconsIcon icon={BotIcon} size={25} strokeWidth={1.8} />
           <p>No runs have been started in this workspace.</p>
         </div>
       ) : null}
@@ -285,7 +286,7 @@ export function RunsPage() {
                 </div>
                 {selected.error?.detail ? (
                   <div className="inline-notice notice-error">
-                    <CircleAlert size={18} /> {selected.error.detail}
+                    <HugeiconsIcon icon={Alert01Icon} size={18} strokeWidth={1.8} /> {selected.error.detail}
                   </div>
                 ) : null}
                 {diagnostics.data?.trace_id ? (
@@ -330,16 +331,20 @@ export function RunsPage() {
                             style={{ transform: `translateY(${String(virtualItem.start)}px)` }}
                           >
                             <span className="timeline-icon">
-                              {item.kind === "tool" ? <Wrench size={16} /> :
-                                item.status === "failed" ? <CircleAlert size={16} /> :
-                                <CheckCircle2 size={16} />}
+                              {item.kind === "tool" ? (
+                                <HugeiconsIcon icon={Wrench01Icon} size={16} strokeWidth={1.8} />
+                              ) : item.status === "failed" ? (
+                                <HugeiconsIcon icon={Alert01Icon} size={16} strokeWidth={1.8} />
+                              ) : (
+                                <HugeiconsIcon icon={CheckmarkCircle01Icon} size={16} strokeWidth={1.8} />
+                              )}
                             </span>
                             <div>
                               <strong>{item.title}</strong>
                               <p>{item.summary}</p>
                             </div>
                             <span className="timeline-duration">
-                              <Clock3 size={13} />{" "}
+                              <HugeiconsIcon icon={Clock01Icon} size={13} strokeWidth={1.8} />{" "}
                               {item.duration_ms === null
                                 ? "-"
                                 : `${String(Math.round(item.duration_ms))} ms`}
@@ -351,7 +356,7 @@ export function RunsPage() {
                   )}
                 </div>
                 <p className="trace-privacy">
-                  <Search size={14} /> Trace shows decisions and tool outcomes only. Secrets and
+                  <HugeiconsIcon icon={Search01Icon} size={14} strokeWidth={1.8} /> Trace shows decisions and tool outcomes only. Secrets and
                   full document content are excluded.
                 </p>
                 {["completed", "failed", "cancelled", "timed_out"].includes(selected.status) ? (
@@ -365,7 +370,7 @@ export function RunsPage() {
                     }}
                   >
                     <div className="replay-heading">
-                      <h3><RotateCcw size={16} /> Replay run</h3>
+                      <h3><HugeiconsIcon icon={RotateCcwIcon} size={16} strokeWidth={1.8} /> Replay run</h3>
                       <div className="segmented-control" aria-label="Replay mode">
                         <button
                           type="button"
@@ -402,7 +407,7 @@ export function RunsPage() {
                       type="submit"
                       disabled={replay.isPending || !replayReason.trim()}
                     >
-                      <RotateCcw size={16} /> {replay.isPending ? "Starting..." : "Start replay"}
+                      <HugeiconsIcon icon={RotateCcwIcon} size={16} strokeWidth={1.8} /> {replay.isPending ? "Starting..." : "Start replay"}
                     </button>
                     {replay.isError ? (
                       <p className="field-error" role="alert">

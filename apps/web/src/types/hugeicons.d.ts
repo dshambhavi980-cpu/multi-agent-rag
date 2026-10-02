@@ -1,6 +1,8 @@
 declare module '@hugeicons/core-free-icons' {
   export type IconSvgElement = readonly (readonly [string, { readonly [key: string]: string | number }])[];
   export const ArrowDown01Icon: IconSvgElement;
+  export const ArrowRight01Icon: IconSvgElement;
+  export const ArrowExpand01Icon: IconSvgElement;
   export const Attachment01Icon: IconSvgElement;
   export const Calendar03Icon: IconSvgElement;
   export const Cancel01Icon: IconSvgElement;
@@ -22,6 +24,7 @@ declare module '@hugeicons/core-free-icons' {
   export const Search01Icon: IconSvgElement;
   export const RefreshIcon: IconSvgElement;
   export const Send01Icon: IconSvgElement;
+  export const SendIcon: IconSvgElement;
   export const StopIcon: IconSvgElement;
   export const UserIcon: IconSvgElement;
   export const Logout01Icon: IconSvgElement;
@@ -29,8 +32,36 @@ declare module '@hugeicons/core-free-icons' {
   export const Clock01Icon: IconSvgElement;
   export const CheckmarkCircle01Icon: IconSvgElement;
   export const Alert01Icon: IconSvgElement;
+  export const AlertCircleIcon: IconSvgElement;
   export const InformationCircleIcon: IconSvgElement;
   export const Comment01Icon: IconSvgElement;
+  export const CommentAdd01Icon: IconSvgElement;
   export const BotIcon: IconSvgElement;
   export const ShieldCheckIcon: IconSvgElement;
+  export const ShieldAlertIcon: IconSvgElement;
+  export const Sun01Icon: IconSvgElement;
+  export const Moon02Icon: IconSvgElement;
+  export const ComputerIcon: IconSvgElement;
+  export const FloppyDiskIcon: IconSvgElement;
+  export const SidebarLeftIcon: IconSvgElement;
+  export const Menu01Icon: IconSvgElement;
+  export const Loading03Icon: IconSvgElement;
+  export const FileSearchIcon: IconSvgElement;
+  export const LinkSquare01Icon: IconSvgElement;
+  export const WifiDisconnected01Icon: IconSvgElement;
+  export const PencilLineIcon: IconSvgElement;
+  export const RotateCcwIcon: IconSvgElement;
+  export const CloudUploadIcon: IconSvgElement;
+  export const Upload01Icon: IconSvgElement;
+  export const FileCheckIcon: IconSvgElement;
+  export const FlashIcon: IconSvgElement;
+  export const Building01Icon: IconSvgElement;
+  export const Key01Icon: IconSvgElement;
+  export const BookOpen01Icon: IconSvgElement;
+  export const Wrench01Icon: IconSvgElement;
+  export const UserGroupIcon: IconSvgElement;
+  export const Delete02Icon: IconSvgElement;
+  export const PlayIcon: IconSvgElement;
+  export const ServerIcon: IconSvgElement;
+  export const CloudServerIcon: IconSvgElement;
 }

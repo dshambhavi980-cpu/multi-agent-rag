@@ -1,15 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Bot,
-  ChevronRight,
-  CircleAlert,
-  History,
-  LoaderCircle,
-  MessageSquarePlus,
-  Send,
-  WifiOff,
-  X,
-} from "lucide-react";
+  Alert01Icon,
+  ArrowRight01Icon,
+  BotIcon,
+  Cancel01Icon,
+  Clock01Icon,
+  CommentAdd01Icon,
+  File02Icon,
+  Loading03Icon,
+  SendIcon,
+  WifiDisconnected01Icon,
+} from "@hugeicons/core-free-icons";
 import {
   type ReactNode,
   type SyntheticEvent,
@@ -35,7 +37,6 @@ import PromptBar, {
   type PromptBarSendDetail,
   type PromptBarSource,
 } from "../../components/PromptBar";
-import { File02Icon } from "@hugeicons/core-free-icons";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useAuth } from "../auth/auth-context";
 import type { DocumentPage } from "../documents/documents.types";
@@ -410,7 +411,7 @@ export function ChatPage() {
             setConversationsOpen(true);
           }}
         >
-          <History size={18} />
+          <HugeiconsIcon icon={Clock01Icon} size={18} strokeWidth={1.8} />
           <span>Conversations</span>
         </button>
       </TopbarPortal>
@@ -434,14 +435,14 @@ export function ChatPage() {
 
       <TopbarPortal targetId="topbar-chat-right">
         <button className="chat-toolbar-button" type="button" onClick={resetDraft}>
-          <MessageSquarePlus size={18} />
+          <HugeiconsIcon icon={CommentAdd01Icon} size={18} strokeWidth={1.8} />
           <span>New chat</span>
         </button>
       </TopbarPortal>
 
       {!online ? (
         <div className="inline-notice notice-warning" role="alert">
-          <WifiOff size={18} />
+          <HugeiconsIcon icon={WifiDisconnected01Icon} size={18} strokeWidth={1.8} />
           <span>You are offline. Existing messages remain available; sending is paused.</span>
         </div>
       ) : null}
@@ -474,7 +475,7 @@ export function ChatPage() {
                 setConversationsOpen(false);
               }}
             >
-              <X size={18} />
+              <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.8} />
             </button>
           </div>
           <button
@@ -485,7 +486,7 @@ export function ChatPage() {
               setConversationsOpen(false);
             }}
           >
-            <MessageSquarePlus size={17} /> New conversation
+            <HugeiconsIcon icon={CommentAdd01Icon} size={17} strokeWidth={1.8} /> New conversation
           </button>
           <div className="conversation-list">
           {(conversations.data?.items ?? []).map((conversation) => (
@@ -502,7 +503,7 @@ export function ChatPage() {
               }}
             >
               <span>{conversation.title ?? "Untitled conversation"}</span>
-              <ChevronRight size={15} />
+              <HugeiconsIcon icon={ArrowRight01Icon} size={15} strokeWidth={1.8} />
             </button>
           ))}
           {conversations.isLoading ? <p>Loading conversations...</p> : null}
@@ -516,7 +517,7 @@ export function ChatPage() {
           <div className="message-scroll" ref={scrollRef} aria-live="polite" aria-busy={sending}>
             {!messages.length && !pendingQuestion ? (
               <div className="chat-empty">
-                <Bot size={26} />
+                <HugeiconsIcon icon={BotIcon} size={26} strokeWidth={1.8} />
                 <h2>Ask from your indexed documents</h2>
                 <p>Answers cite the exact source passages used.</p>
               </div>
@@ -564,19 +565,19 @@ export function ChatPage() {
                   />
                 ) : (
                   <p className="thinking-line">
-                    <LoaderCircle className="spin" size={16} /> Retrieving evidence...
+                    <HugeiconsIcon icon={Loading03Icon} className="spin" size={16} strokeWidth={1.8} /> Retrieving evidence...
                   </p>
                 )}
               </article>
             ) : null}
             {runState === "Awaiting human review" ? (
               <a className="review-link" href="/approvals">
-                <CircleAlert size={16} /> Open the review queue
+                <HugeiconsIcon icon={Alert01Icon} size={16} strokeWidth={1.8} /> Open the review queue
               </a>
             ) : null}
             {error ? (
               <div className="inline-notice notice-error" role="alert">
-                <CircleAlert size={18} />
+                <HugeiconsIcon icon={Alert01Icon} size={18} strokeWidth={1.8} />
                 <span>{error}</span>
               </div>
             ) : null}
@@ -687,7 +688,11 @@ export function ChatPage() {
                 aria-label="Send message"
                 disabled={!question.trim() || sending || !online || awaitingReview}
               >
-                {sending ? <LoaderCircle className="spin" size={18} /> : <Send size={18} />}
+                {sending ? (
+                  <HugeiconsIcon icon={Loading03Icon} className="spin" size={18} strokeWidth={1.8} />
+                ) : (
+                  <HugeiconsIcon icon={SendIcon} size={18} strokeWidth={1.8} />
+                )}
               </button>
             </div>
           </form>
@@ -731,7 +736,7 @@ export function ChatPage() {
               }}
               aria-label="Close image preview"
             >
-              <X size={18} />
+              <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.8} />
             </button>
           </div>
         </div>

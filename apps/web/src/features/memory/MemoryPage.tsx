@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Database,
-  LockKeyhole,
-  RefreshCw,
-  Trash2,
-  Users,
-} from "lucide-react";
+  Database01Icon,
+  Delete02Icon,
+  RefreshIcon,
+  ShieldKeyIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
 import { requestJson } from "../../api/client";
@@ -68,7 +69,7 @@ export function MemoryPage() {
           aria-label="Refresh memory"
           onClick={() => void memories.refetch()}
         >
-          <RefreshCw size={18} />
+          <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} />
         </button>
       </div>
 
@@ -97,9 +98,9 @@ export function MemoryPage() {
           <article className="memory-row" key={memory.id}>
             <div className="memory-scope" title={`${memory.visibility} memory`}>
               {memory.visibility === "private" ? (
-                <LockKeyhole size={18} aria-hidden="true" />
+                <HugeiconsIcon icon={ShieldKeyIcon} size={18} strokeWidth={1.8} aria-hidden="true" />
               ) : (
-                <Users size={18} aria-hidden="true" />
+                <HugeiconsIcon icon={UserGroupIcon} size={18} strokeWidth={1.8} aria-hidden="true" />
               )}
             </div>
             <div className="memory-content">
@@ -132,7 +133,7 @@ export function MemoryPage() {
                   }
                 }}
               >
-                <Trash2 size={17} />
+                <HugeiconsIcon icon={Delete02Icon} size={17} strokeWidth={1.8} />
               </button>
             ) : null}
           </article>
@@ -143,7 +144,7 @@ export function MemoryPage() {
         ) : null}
         {!memories.isLoading && !memories.data?.items.length ? (
           <div className="memory-empty">
-            <Database size={25} aria-hidden="true" />
+            <HugeiconsIcon icon={Database01Icon} size={25} strokeWidth={1.8} aria-hidden="true" />
             <p>No active memories match this view.</p>
           </div>
         ) : null}

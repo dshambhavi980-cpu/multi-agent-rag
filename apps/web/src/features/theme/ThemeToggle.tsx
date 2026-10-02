@@ -1,4 +1,5 @@
-import { Moon, Sun } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Moon02Icon, Sun01Icon } from "@hugeicons/core-free-icons";
 
 import { useTheme } from "./theme-context";
 
@@ -14,7 +15,11 @@ export function ThemeToggle({ className = "" }: { className?: string }) {
       title={isDark ? "Switch to light mode" : "Switch to dark mode"}
       onClick={toggleTheme}
     >
-      {isDark ? <Sun size={19} aria-hidden="true" /> : <Moon size={19} aria-hidden="true" />}
+      {isDark ? (
+        <HugeiconsIcon icon={Sun01Icon} size={19} strokeWidth={1.8} aria-hidden="true" />
+      ) : (
+        <HugeiconsIcon icon={Moon02Icon} size={19} strokeWidth={1.8} aria-hidden="true" />
+      )}
     </button>
   );
 }

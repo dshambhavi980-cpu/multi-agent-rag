@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  BarChart3,
-  CheckCircle2,
-  CircleAlert,
-  Play,
-  RefreshCw,
-} from "lucide-react";
+  Alert01Icon,
+  ChartLineData01Icon,
+  CheckmarkCircle01Icon,
+  PlayIcon,
+  RefreshIcon,
+} from "@hugeicons/core-free-icons";
 import { useState } from "react";
 
 import { ApiClientError, requestJson } from "../../api/client";
@@ -135,7 +136,7 @@ export function EvaluationsPage() {
           aria-label="Refresh evaluations"
           onClick={() => void evaluations.refetch()}
         >
-          <RefreshCw size={18} />
+          <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} />
         </button>
       </div>
 
@@ -189,7 +190,7 @@ export function EvaluationsPage() {
             type="submit"
             disabled={!selectedVariants.length || create.isPending}
           >
-            <Play size={16} /> {create.isPending ? "Starting..." : "Run evaluation"}
+            <HugeiconsIcon icon={PlayIcon} size={16} strokeWidth={1.8} /> {create.isPending ? "Starting..." : "Run evaluation"}
           </button>
         </div>
         {create.isError ? (
@@ -200,18 +201,18 @@ export function EvaluationsPage() {
       {evaluations.isLoading ? <p className="table-message">Loading evaluations...</p> : null}
       {unavailable ? (
         <div className="inline-notice notice-warning" role="status">
-          <CircleAlert size={18} />
+          <HugeiconsIcon icon={Alert01Icon} size={18} strokeWidth={1.8} />
           <span>Evaluation execution is not enabled in this deployment.</span>
         </div>
       ) : null}
       {evaluations.isError && !unavailable ? (
         <div className="inline-notice notice-error" role="alert">
-          <CircleAlert size={18} /> Evaluations could not be loaded.
+          <HugeiconsIcon icon={Alert01Icon} size={18} strokeWidth={1.8} /> Evaluations could not be loaded.
         </div>
       ) : null}
       {!evaluations.isLoading && !evaluations.isError && !evaluations.data?.items.length ? (
         <div className="memory-empty">
-          <BarChart3 size={25} />
+          <HugeiconsIcon icon={ChartLineData01Icon} size={25} strokeWidth={1.8} />
           <p>No evaluation runs in this workspace.</p>
         </div>
       ) : null}
@@ -250,7 +251,11 @@ export function EvaluationsPage() {
                     <p className="eyebrow">Release gate</p>
                     <h2>{selected.gate_passed === null ? selected.status : selected.gate_passed ? "Passed" : "Blocked"}</h2>
                   </div>
-                  {selected.gate_passed ? <CheckCircle2 size={23} /> : <CircleAlert size={23} />}
+                  {selected.gate_passed ? (
+                    <HugeiconsIcon icon={CheckmarkCircle01Icon} size={23} strokeWidth={1.8} />
+                  ) : (
+                    <HugeiconsIcon icon={Alert01Icon} size={23} strokeWidth={1.8} />
+                  )}
                 </div>
                 <div className="evaluation-metrics">
                   <div><span>Hybrid nDCG</span><strong>{percent(selected.metrics.hybrid_ndcg)}</strong></div>
@@ -262,7 +267,7 @@ export function EvaluationsPage() {
                 </div>
                 {selected.gate_failures.length ? (
                   <div className="inline-notice notice-error">
-                    <CircleAlert size={17} /> Blocked by: {selected.gate_failures.join(", ")}
+                    <HugeiconsIcon icon={Alert01Icon} size={17} strokeWidth={1.8} /> Blocked by: {selected.gate_failures.join(", ")}
                   </div>
                 ) : null}
                 <h3>Case results</h3>

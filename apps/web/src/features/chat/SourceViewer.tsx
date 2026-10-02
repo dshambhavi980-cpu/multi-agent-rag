@@ -1,4 +1,11 @@
-import { ExternalLink, FileSearch, LoaderCircle, Maximize2, X } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  ArrowExpand01Icon,
+  Cancel01Icon,
+  FileSearchIcon,
+  LinkSquare01Icon,
+  Loading03Icon,
+} from "@hugeicons/core-free-icons";
 import { useEffect, useState } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkBreaks from "remark-breaks";
@@ -146,7 +153,7 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
           </div>
           <div className="source-heading-actions">
             <button className="icon-button" type="button" aria-label="Close source" onClick={onClose}>
-              <X size={19} />
+              <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.8} />
             </button>
           </div>
         </div>
@@ -206,7 +213,7 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
                   }}
                   title="Click to expand page in fullscreen"
                 >
-                  <Maximize2 size={13} /> Fullscreen
+                  <HugeiconsIcon icon={ArrowExpand01Icon} size={13} strokeWidth={1.8} /> Fullscreen
                 </button>
               </div>
               <div
@@ -231,13 +238,13 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
 
           {!source && !error && !pagePreviewUrl ? (
             <div className="source-state">
-              <LoaderCircle className="spin" size={16} />
+              <HugeiconsIcon icon={Loading03Icon} className="spin" size={16} strokeWidth={1.8} />
               <span>Loading protected source...</span>
             </div>
           ) : null}
           {error && !pagePreviewUrl ? (
             <div className="source-state source-state-error">
-              <FileSearch size={16} />
+              <HugeiconsIcon icon={FileSearchIcon} size={16} strokeWidth={1.8} />
               <span>The protected source could not be opened.</span>
             </div>
           ) : null}
@@ -249,7 +256,7 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
                 className={pagePreviewUrl ? "source-iframe hidden" : "source-iframe"}
               />
               <a href={source} target="_blank" rel="noreferrer" className="source-open-tab-link">
-                <ExternalLink size={15} /> Open full document in a new tab
+                <HugeiconsIcon icon={LinkSquare01Icon} size={15} strokeWidth={1.8} /> Open full document in a new tab
               </a>
             </>
           ) : null}
@@ -280,7 +287,7 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
               }}
               aria-label="Close image preview"
             >
-              <X size={20} />
+              <HugeiconsIcon icon={Cancel01Icon} size={20} strokeWidth={1.8} />
             </button>
             <img
               src={previewImage.src}

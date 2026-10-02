@@ -1,19 +1,17 @@
-import {
-  BookOpenText,
-  Menu,
-  PanelLeftClose,
-  X,
-} from "lucide-react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Activity01Icon,
+  BookOpen01Icon,
   BotIcon,
+  Cancel01Icon,
   Comment01Icon,
   DashboardSquare01Icon,
   Database01Icon,
   File02Icon,
+  Menu01Icon,
   Settings01Icon,
   ShieldCheckIcon,
+  SidebarLeftIcon,
   StarIcon,
 } from "@hugeicons/core-free-icons";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -87,7 +85,7 @@ const routeTitles: Record<string, string> = {
 function Placeholder({ title }: { title: string }) {
   return (
     <section className="empty-state" aria-labelledby="placeholder-title">
-      <BookOpenText aria-hidden="true" size={28} />
+      <HugeiconsIcon icon={BookOpen01Icon} aria-hidden="true" size={28} strokeWidth={1.8} />
       <h1 id="placeholder-title">{title}</h1>
       <p>This workspace will be connected in its implementation phase.</p>
     </section>
@@ -158,7 +156,7 @@ function AuthenticatedApp() {
               window.localStorage.setItem("docpilot:sidebar", "closed");
             }}
           >
-            <PanelLeftClose size={19} />
+            <HugeiconsIcon icon={SidebarLeftIcon} size={19} strokeWidth={1.8} />
           </button>
           <button
             className="icon-button mobile-only"
@@ -168,7 +166,7 @@ function AuthenticatedApp() {
               setMobileNavigationOpen(false);
             }}
           >
-            <X size={19} />
+            <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.8} />
           </button>
         </div>
 
@@ -223,7 +221,7 @@ function AuthenticatedApp() {
               }
             }}
           >
-            <Menu size={20} />
+            <HugeiconsIcon icon={Menu01Icon} size={20} strokeWidth={1.8} />
           </button>
           {activeWorkspace ? (
             <SelectMenu

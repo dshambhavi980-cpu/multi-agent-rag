@@ -1,4 +1,9 @@
-import { Building2, LoaderCircle, Plus } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Building01Icon,
+  Loading03Icon,
+  PlusSignIcon,
+} from "@hugeicons/core-free-icons";
 import { type PropsWithChildren, type SyntheticEvent, useState } from "react";
 
 import { useWorkspace } from "./workspace-context";
@@ -11,7 +16,7 @@ export function WorkspaceGate({ children }: PropsWithChildren) {
   if (loading) {
     return (
       <main className="auth-page">
-        <LoaderCircle className="spin" aria-hidden="true" />
+        <HugeiconsIcon icon={Loading03Icon} className="spin" aria-hidden="true" size={24} strokeWidth={1.8} />
         <p>Loading your workspaces</p>
       </main>
     );
@@ -34,7 +39,7 @@ export function WorkspaceGate({ children }: PropsWithChildren) {
   return (
     <main className="auth-page">
       <section className="auth-panel" aria-labelledby="workspace-title">
-        <Building2 aria-hidden="true" size={28} />
+        <HugeiconsIcon icon={Building01Icon} aria-hidden="true" size={28} strokeWidth={1.8} />
         <h1 id="workspace-title">Create your first workspace</h1>
         <p>Documents, conversations, and agent runs stay isolated inside it.</p>
         <form onSubmit={(event) => void submit(event)}>
@@ -52,9 +57,9 @@ export function WorkspaceGate({ children }: PropsWithChildren) {
           />
           <button className="primary-button auth-submit" type="submit" disabled={creating}>
             {creating ? (
-              <LoaderCircle className="spin" aria-hidden="true" size={17} />
+              <HugeiconsIcon icon={Loading03Icon} className="spin" aria-hidden="true" size={17} strokeWidth={1.8} />
             ) : (
-              <Plus aria-hidden="true" size={17} />
+              <HugeiconsIcon icon={PlusSignIcon} aria-hidden="true" size={17} strokeWidth={2} />
             )}
             Create workspace
           </button>

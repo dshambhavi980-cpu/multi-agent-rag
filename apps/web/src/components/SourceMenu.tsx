@@ -1,4 +1,5 @@
-import { Check, FileText, X } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { Cancel01Icon, File02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useRef, useState } from "react";
 
 type SourceOption = {
@@ -45,7 +46,7 @@ export function SourceMenu({ options, selected, disabled = false, onChange }: Pr
           setOpen((current) => !current);
         }}
       >
-        <FileText size={16} />
+        <HugeiconsIcon icon={File02Icon} size={16} strokeWidth={1.8} />
         <span>{selected.length ? `${String(selected.length)} sources` : "All sources"}</span>
       </button>
       {open ? (
@@ -63,7 +64,7 @@ export function SourceMenu({ options, selected, disabled = false, onChange }: Pr
                 setOpen(false);
               }}
             >
-              <X size={16} />
+              <HugeiconsIcon icon={Cancel01Icon} size={16} strokeWidth={2} />
             </button>
           </div>
           {options.length ? (
@@ -76,7 +77,9 @@ export function SourceMenu({ options, selected, disabled = false, onChange }: Pr
                 }}
               >
                 <span>Search all documents</span>
-                {!selected.length ? <Check size={16} /> : null}
+                {!selected.length ? (
+                  <HugeiconsIcon icon={Tick02Icon} size={16} strokeWidth={2} />
+                ) : null}
               </button>
               {options.map((option) => {
                 const checked = selected.includes(option.id);

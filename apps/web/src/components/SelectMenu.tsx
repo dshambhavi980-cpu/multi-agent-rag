@@ -1,4 +1,5 @@
-import { Check, ChevronDown } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import { ArrowDown01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useId, useRef, useState } from "react";
 
 export type SelectOption<T extends string> = {
@@ -60,7 +61,7 @@ export function SelectMenu<T extends string>({
         }}
       >
         <span>{selected?.label ?? "Select"}</span>
-        <ChevronDown size={16} aria-hidden="true" />
+        <HugeiconsIcon icon={ArrowDown01Icon} size={16} strokeWidth={1.8} aria-hidden="true" />
       </button>
       {open ? (
         <div className="select-menu-popover" id={menuId} role="listbox" aria-label={label}>
@@ -79,7 +80,9 @@ export function SelectMenu<T extends string>({
                 <strong>{option.label}</strong>
                 {option.description ? <small>{option.description}</small> : null}
               </span>
-              {option.value === value ? <Check size={16} aria-hidden="true" /> : null}
+              {option.value === value ? (
+                <HugeiconsIcon icon={Tick02Icon} size={16} strokeWidth={2} aria-hidden="true" />
+              ) : null}
             </button>
           ))}
         </div>

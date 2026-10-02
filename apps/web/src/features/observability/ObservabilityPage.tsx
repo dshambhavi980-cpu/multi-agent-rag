@@ -1,5 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
-import { Activity, CircleAlert, Clock3, Database, RefreshCw, Zap } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Activity01Icon,
+  Alert01Icon,
+  Clock01Icon,
+  Database01Icon,
+  FlashIcon,
+  RefreshIcon,
+} from "@hugeicons/core-free-icons";
 
 import { requestJson } from "../../api/client";
 import { useAuth } from "../auth/auth-context";
@@ -39,35 +47,35 @@ export function ObservabilityPage() {
           title="Refresh operations"
           onClick={() => void summary.refetch()}
         >
-          <RefreshCw size={18} />
+          <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} />
         </button>
       </div>
       {summary.isError ? (
         <div className="inline-notice notice-error" role="alert">
-          <CircleAlert size={18} /> Operational metrics could not be loaded.
+          <HugeiconsIcon icon={Alert01Icon} size={18} strokeWidth={1.8} /> Operational metrics could not be loaded.
         </div>
       ) : null}
       <div className="metric-grid">
         <article className="metric-panel">
-          <Activity size={18} />
+          <HugeiconsIcon icon={Activity01Icon} size={18} strokeWidth={1.8} />
           <p>24h success rate</p>
           <strong>{data ? `${String(Math.round(data.success_rate * 100))}%` : "-"}</strong>
           <small>{data ? `${String(data.successful_runs)} of ${String(data.total_runs)} runs` : "Loading"}</small>
         </article>
         <article className="metric-panel">
-          <Clock3 size={18} />
+          <HugeiconsIcon icon={Clock01Icon} size={18} strokeWidth={1.8} />
           <p>P95 latency</p>
           <strong>{data ? `${String(Math.round(data.p95_latency_ms))} ms` : "-"}</strong>
           <small>End-to-end execution</small>
         </article>
         <article className="metric-panel">
-          <Zap size={18} />
+          <HugeiconsIcon icon={FlashIcon} size={18} strokeWidth={1.8} />
           <p>Token volume</p>
           <strong>{data ? (data.input_tokens + data.output_tokens).toLocaleString() : "-"}</strong>
           <small>{data ? `${String(data.active_runs)} active runs` : "Loading"}</small>
         </article>
         <article className="metric-panel">
-          <Database size={18} />
+          <HugeiconsIcon icon={Database01Icon} size={18} strokeWidth={1.8} />
           <p>Detailed traces</p>
           <strong>{data ? `${String(data.trace_count)} / ${String(data.trace_limit)}` : "-"}</strong>
           <small>{data ? `${String(data.retention_days)} day retention` : "Loading"}</small>

@@ -282,7 +282,7 @@ select:focus-visible {
   justify-content: space-between;
   gap: 12px;
   border: 1px solid #cfd5df;
-  border-radius: 7px;
+  border-radius: 8px;
   background: #ffffff;
   padding: 0 10px 0 12px;
   color: #273248;
@@ -318,7 +318,7 @@ select:focus-visible {
   width: max(100%, 230px);
   overflow: hidden;
   border: 1px solid #d4dae3;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #ffffff;
   padding: 5px;
   box-shadow: 0 14px 34px rgb(23 32 51 / 0.16);
@@ -332,7 +332,7 @@ select:focus-visible {
   justify-content: space-between;
   gap: 12px;
   border: 0;
-  border-radius: 5px;
+  border-radius: 6px;
   background: transparent;
   padding: 7px 9px;
   color: #344054;
@@ -494,7 +494,7 @@ select:focus-visible {
 .metric-panel {
   min-height: 126px;
   border: 1px solid #d9dee7;
-  border-radius: 7px;
+  border-radius: 10px;
   background: #ffffff;
   padding: 18px;
   box-shadow: 0 1px 2px rgb(23 32 51 / 0.04);
@@ -1567,7 +1567,7 @@ html.dark .chat-lightbox-close:hover {
   width: min(340px, 82vw);
   overflow: hidden;
   border: 1px solid #cfd5df;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 14px 34px rgb(23 32 51 / 0.16);
 }
@@ -2520,13 +2520,18 @@ html.dark .chat-lightbox-close:hover {
 }
 
 .settings-section {
-  border-top: 2px solid #087f70;
-  padding: 20px 0 0;
+  border: 1px solid #e4e4e7;
+  border-radius: 12px;
+  padding: 24px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.05);
 }
 
 .settings-section h2 {
   margin: 0 0 18px;
   font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
 .settings-form label {
@@ -2534,7 +2539,7 @@ html.dark .chat-lightbox-close:hover {
   margin-bottom: 7px;
   color: #344054;
   font-size: 13px;
-  font-weight: 680;
+  font-weight: 500;
 }
 
 .settings-form > div {
@@ -2547,18 +2552,20 @@ html.dark .chat-lightbox-close:hover {
   min-height: 40px;
   flex: 1;
   border: 1px solid #cbd2dd;
-  border-radius: 6px;
-  padding: 0 11px;
+  border-radius: 8px;
+  padding: 0 12px;
   color: #172033;
   font: inherit;
+  font-size: 14px;
 }
 
 .settings-save {
   margin: 0;
+  border-radius: 8px;
 }
 
 .identity-list {
-  margin: 26px 0 0;
+  margin: 24px 0 0;
 }
 
 .identity-list div,
@@ -2581,62 +2588,75 @@ html.dark .chat-lightbox-close:hover {
 .identity-list dd {
   margin: 0;
   color: #344054;
-  font-weight: 680;
+  font-weight: 500;
 }
 
 .usage-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .usage-grid > div {
   display: grid;
   min-height: 94px;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-content: center;
-  border: 1px solid #d9dee7;
-  border-radius: 6px;
-  padding: 13px;
+  border: 1px solid #e4e4e7;
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #fbfbfc;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
 }
 
 .usage-grid svg {
-  color: #087f70;
+  color: #71717a;
 }
 
 .usage-grid span {
-  color: #667085;
-  font-size: 12px;
+  color: #71717a;
+  font-size: 13px;
+  font-weight: 500;
 }
 
 .usage-grid strong {
   grid-column: 2;
-  margin-top: 5px;
-  font-size: 18px;
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 .storage-meter {
-  margin-top: 18px;
+  margin-top: 16px;
+  border: 1px solid #e4e4e7;
+  border-radius: 10px;
+  padding: 16px;
+  background: #fbfbfc;
 }
 
 .storage-meter span {
   display: flex;
   align-items: center;
-  gap: 7px;
-  color: #596579;
+  gap: 8px;
+  color: #71717a;
   font-size: 13px;
+  font-weight: 500;
 }
 
 .storage-meter strong {
-  color: #344054;
-  font-size: 12px;
+  color: #18181b;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .storage-meter progress {
   width: 100%;
-  height: 10px;
-  margin-top: 9px;
-  accent-color: #087f70;
+  height: 8px;
+  margin-top: 10px;
+  border-radius: 9999px;
+  overflow: hidden;
+  accent-color: #18181b;
 }
 
 .primary-button:disabled {
@@ -3584,7 +3604,7 @@ html.dark .status-badge-unavailable {
 
 html.dark .metric-panel {
   border-color: #27272a;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #09090b;
   box-shadow: none;
   transition: border-color 150ms ease;
@@ -4073,7 +4093,7 @@ html.dark .source-menu-trigger[aria-expanded="true"] {
 
 html.dark .source-menu-popover {
   border-color: #27272a;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #09090b;
   box-shadow: 0 10px 30px rgb(0 0 0 / 0.85);
 }
@@ -4357,7 +4377,10 @@ html.dark .evaluation-results time {
 
 /* Settings View */
 html.dark .settings-section {
-  border-top-color: #27272a;
+  border-color: #27272a;
+  border-radius: 12px;
+  background: #09090b;
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.4);
 }
 
 html.dark .settings-section h2 {
@@ -4370,7 +4393,7 @@ html.dark .settings-desc {
 
 html.dark .appearance-btn {
   border-color: #27272a;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #09090b;
   color: #a1a1aa;
 }
@@ -4385,6 +4408,7 @@ html.dark .appearance-btn-active {
   border-color: #52525b;
   background: #27272a;
   color: #fafafa;
+  font-weight: 500;
 }
 
 html.dark .settings-form label {
@@ -4393,6 +4417,7 @@ html.dark .settings-form label {
 
 html.dark .settings-form input {
   border-color: #27272a;
+  border-radius: 8px;
   background: #09090b;
   color: #fafafa;
 }
@@ -4411,8 +4436,13 @@ html.dark .identity-list dd {
 
 html.dark .usage-grid > div {
   border-color: #27272a;
-  border-radius: 6px;
+  border-radius: 10px;
   background: #09090b;
+}
+
+html.dark .usage-grid > div:hover {
+  border-color: #3f3f46;
+  background: #141417;
 }
 
 html.dark .usage-grid strong {
@@ -4423,6 +4453,16 @@ html.dark .usage-grid span {
   color: #a1a1aa;
 }
 
+html.dark .usage-grid svg {
+  color: #a1a1aa;
+}
+
+html.dark .storage-meter {
+  border-color: #27272a;
+  border-radius: 10px;
+  background: #09090b;
+}
+
 html.dark .storage-meter span {
   color: #a1a1aa;
 }
@@ -4431,12 +4471,16 @@ html.dark .storage-meter strong {
   color: #fafafa;
 }
 
+html.dark .storage-meter progress {
+  accent-color: #fafafa;
+}
+
 /* Common Form Elements, Auth Panels & Buttons */
 html.dark input:not([type="checkbox"]):not([type="radio"]),
 html.dark textarea,
 html.dark select {
   border-color: #27272a;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #09090b;
   color: #fafafa;
 }
@@ -4448,9 +4492,33 @@ html.dark select:focus-visible {
   outline: 2px solid rgb(255 255 255 / 0.18);
 }
 
+/* PromptBar Textarea Reset - completely removes the black strip inside PromptBar */
+html.dark [data-prompt-bar] textarea,
+[data-prompt-bar] textarea,
+.docpilot-prompt-bar-wrap textarea {
+  border: 0 !important;
+  border-color: transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+html.dark [data-prompt-bar] textarea:focus,
+html.dark [data-prompt-bar] textarea:focus-visible,
+[data-prompt-bar] textarea:focus,
+[data-prompt-bar] textarea:focus-visible,
+.docpilot-prompt-bar-wrap textarea:focus,
+.docpilot-prompt-bar-wrap textarea:focus-visible {
+  border: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 html.dark .primary-button {
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #fafafa;
   color: #09090b;
   font-weight: 500;
@@ -4468,7 +4536,7 @@ html.dark .primary-button:disabled {
 
 html.dark .secondary-button {
   border-color: #27272a;
-  border-radius: 6px;
+  border-radius: 8px;
   background: #18181b;
   color: #fafafa;
 }

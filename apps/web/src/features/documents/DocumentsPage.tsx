@@ -1,6 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { FileCheck2, FileUp, LoaderCircle, RefreshCw, UploadCloud } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  CloudUploadIcon,
+  FileCheckIcon,
+  Loading03Icon,
+  RefreshIcon,
+  Upload01Icon,
+} from "@hugeicons/core-free-icons";
 import { useEffect, useRef, useState } from "react";
 
 import { requestJson } from "../../api/client";
@@ -175,7 +182,7 @@ export function DocumentsPage() {
           aria-label="Refresh documents"
           onClick={() => void documents.refetch()}
         >
-          <RefreshCw size={18} />
+          <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} />
         </button>
       </div>
 
@@ -190,7 +197,11 @@ export function DocumentsPage() {
           if (file) void upload(file);
         }}
       >
-        {uploading ? <LoaderCircle className="spin" size={27} /> : <UploadCloud size={27} />}
+        {uploading ? (
+          <HugeiconsIcon icon={Loading03Icon} className="spin" size={27} strokeWidth={1.8} />
+        ) : (
+          <HugeiconsIcon icon={CloudUploadIcon} size={27} strokeWidth={1.8} />
+        )}
         <div>
           <strong>{uploading ? "Verifying and uploading" : "Add source documents"}</strong>
           <p>PDF, TXT, Markdown, or HTML, up to 25 MB</p>
@@ -201,7 +212,7 @@ export function DocumentsPage() {
           disabled={uploading}
           onClick={() => input.current?.click()}
         >
-          <FileUp size={17} />
+          <HugeiconsIcon icon={Upload01Icon} size={17} strokeWidth={1.8} />
           Upload
         </button>
         <input
@@ -239,7 +250,7 @@ export function DocumentsPage() {
               >
                 <td>
                   <span className="document-name">
-                    <FileCheck2 size={17} />
+                    <HugeiconsIcon icon={FileCheckIcon} size={17} strokeWidth={1.8} />
                     <span>
                       <span>{document.title ?? document.filename}</span>
                       {document.failure_code ? (
@@ -267,7 +278,7 @@ export function DocumentsPage() {
           <div className="table-message">
             <p>Documents could not be loaded.</p>
             <button className="secondary-button" type="button" onClick={() => void documents.refetch()}>
-              <RefreshCw size={16} /> Retry
+              <HugeiconsIcon icon={RefreshIcon} size={16} strokeWidth={1.8} /> Retry
             </button>
           </div>
         ) : null}

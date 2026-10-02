@@ -1,13 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { HugeiconsIcon } from "@hugeicons/react";
 import {
-  Check,
-  Clock3,
-  PencilLine,
-  RefreshCw,
-  RotateCcw,
-  ShieldAlert,
-  X,
-} from "lucide-react";
+  Cancel01Icon,
+  Clock01Icon,
+  PencilLineIcon,
+  RefreshIcon,
+  RotateCcwIcon,
+  ShieldAlertIcon,
+  Tick02Icon,
+} from "@hugeicons/core-free-icons";
 import { useEffect, useMemo, useState } from "react";
 
 import { requestJson } from "../../api/client";
@@ -109,7 +110,7 @@ export function ApprovalsPage() {
           aria-label="Refresh approvals"
           onClick={() => void approvals.refetch()}
         >
-          <RefreshCw size={18} />
+          <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} />
         </button>
       </div>
 
@@ -140,7 +141,7 @@ export function ApprovalsPage() {
       ) : null}
       {!approvals.isLoading && !approvals.data?.items.length ? (
         <div className="memory-empty">
-          <ShieldAlert size={25} aria-hidden="true" />
+          <HugeiconsIcon icon={ShieldAlertIcon} size={25} strokeWidth={1.8} aria-hidden="true" />
           <p>No approval requests match this view.</p>
         </div>
       ) : null}
@@ -185,7 +186,7 @@ export function ApprovalsPage() {
                   <h2>Run {selected.run_id.slice(0, 8)}</h2>
                 </div>
                 <span className="approval-age">
-                  <Clock3 size={15} />
+                  <HugeiconsIcon icon={Clock01Icon} size={15} strokeWidth={1.8} />
                   {new Date(selected.created_at).toLocaleString()}
                 </span>
               </div>
@@ -198,7 +199,7 @@ export function ApprovalsPage() {
               </div>
 
               <label className="approval-field">
-                <span><PencilLine size={15} /> Proposed output</span>
+                <span><HugeiconsIcon icon={PencilLineIcon} size={15} strokeWidth={1.8} /> Proposed output</span>
                 <textarea
                   value={editedOutput || selected.proposed_output || ""}
                   readOnly={selected.status !== "pending"}
@@ -232,7 +233,7 @@ export function ApprovalsPage() {
                         decide.mutate({ action: "approve", item: selected });
                       }}
                     >
-                      <Check size={17} /> Approve
+                      <HugeiconsIcon icon={Tick02Icon} size={17} strokeWidth={2} /> Approve
                     </button>
                     <button
                       className="decision-button"
@@ -242,7 +243,7 @@ export function ApprovalsPage() {
                         decide.mutate({ action: "revise", item: selected });
                       }}
                     >
-                      <RotateCcw size={17} /> Request revision
+                      <HugeiconsIcon icon={RotateCcwIcon} size={17} strokeWidth={1.8} /> Request revision
                     </button>
                     <button
                       className="decision-button decision-reject"
@@ -252,7 +253,7 @@ export function ApprovalsPage() {
                         decide.mutate({ action: "reject", item: selected });
                       }}
                     >
-                      <X size={17} /> Reject
+                      <HugeiconsIcon icon={Cancel01Icon} size={17} strokeWidth={1.8} /> Reject
                     </button>
                   </div>
                 </>
