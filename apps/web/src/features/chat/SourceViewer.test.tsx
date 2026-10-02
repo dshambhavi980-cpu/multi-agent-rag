@@ -90,3 +90,29 @@ test("opens a source without a page fragment", async () => {
     );
   });
 });
+
+test("renders formatted markdown citation content and opens image lightbox", async () => {
+  render(
+    <SourceViewer
+      citation={{
+        ...citation,
+        quote:
+          "### Diagram: Figure 4-12\n\n![Figure 4-12 architecture](https://example.com/fig.jpeg)\n\n**Figure Context**: Token bucket rate limiting details.",
+      }}
+      accessToken="token"
+      workspaceId="workspace-1"
+      onClose={vi.fn()}
+    />,
+  );
+
+  expect(screen.getByRole("heading", { level: 3, name: "Diagram: Figure 4-12" })).toBeInTheDocument();
+  const img = screen.getByAltText("Figure 4-12 architecture");
+  expect(img).toBeInTheDocument();
+  expect(screen.getByText(/Token bucket rate limiting details/)).toBeInTheDocument();
+
+  fireEvent.click(img);
+  expect(screen.getByRole("dialog", { name: "Enlarged diagram" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Close image preview" }));
+  expect(screen.queryByRole("dialog", { name: "Enlarged diagram" })).not.toBeInTheDocument();
+});
+

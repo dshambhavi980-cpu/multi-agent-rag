@@ -1718,16 +1718,17 @@ html.dark .chat-lightbox-close:hover {
   z-index: 80;
   display: flex;
   justify-content: flex-end;
-  background: rgb(17 24 39 / 0.46);
+  background: transparent;
 }
 
 .source-viewer {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   width: min(720px, 92vw);
   height: 100%;
-  grid-template-rows: auto auto minmax(0, 1fr);
   background: #ffffff;
-  box-shadow: -10px 0 30px rgb(17 24 39 / 0.15);
+  border-left: 1px solid #e1e6ed;
+  box-shadow: none;
 }
 
 .source-heading {
@@ -1737,57 +1738,107 @@ html.dark .chat-lightbox-close:hover {
   gap: 15px;
   border-bottom: 1px solid #e1e6ed;
   padding: 18px 20px;
+  flex: 0 0 auto;
 }
 
 .source-heading h2 {
   margin: 4px 0 0;
-  font-size: 18px;
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.source-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .source-quote {
   margin: 0;
-  border-bottom: 1px solid #e1e6ed;
-  background: #f8fafb;
-  padding: 16px 20px;
-  color: #48556a;
-  font-size: 13px;
-  line-height: 1.55;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  background: #ffffff;
+  padding: 20px 24px;
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.source-quote .message-markdown {
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.source-quote .message-markdown h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.source-quote .message-markdown p {
+  margin: 0 0 12px;
+}
+
+.source-quote .chat-figure {
+  margin: 16px 0;
 }
 
 .source-document {
   position: relative;
-  min-height: 0;
+  flex: 0 0 auto;
+  border-top: 1px solid #e1e6ed;
+  background: #f8fafb;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 10px 18px;
+  min-height: 48px;
 }
 
-.source-document iframe {
-  width: 100%;
-  height: calc(100% - 38px);
+.source-iframe {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
   border: 0;
 }
 
-.source-document > a {
-  display: flex;
-  height: 38px;
+.source-document > a,
+.source-open-tab-link {
+  display: inline-flex;
+  height: 34px;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  border-top: 1px solid #e1e6ed;
-  color: #076a5e;
+  padding: 0 14px;
+  border-radius: 6px;
+  background: #076a5e;
+  color: #ffffff;
   font-size: 13px;
-  font-weight: 680;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color 0.15s ease;
+}
+
+.source-document > a:hover,
+.source-open-tab-link:hover {
+  background: #055047;
 }
 
 .source-state {
   display: flex;
-  height: 100%;
   align-items: center;
-  justify-content: center;
-  gap: 9px;
-  color: #667085;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .source-state-error {
-  color: #992b36;
+  color: #dc2626;
 }
 
 .run-workspace {
@@ -3976,11 +4027,12 @@ html.dark .source-menu-options label:hover {
 html.dark .source-viewer {
   border-left-color: #27272a;
   background: #09090b;
-  box-shadow: -10px 0 30px rgb(0 0 0 / 0.85);
+  box-shadow: none;
 }
 
 html.dark .source-heading {
   border-bottom-color: #27272a;
+  background: #09090b;
 }
 
 html.dark .source-heading h2 {
@@ -3993,9 +4045,32 @@ html.dark .source-quote {
   color: #e4e4e7;
 }
 
-html.dark .source-document > a {
+html.dark .source-quote .message-markdown h3 {
+  color: #f4f4f5;
+}
+
+html.dark .source-document {
   border-top-color: #27272a;
-  color: #fafafa;
+  background: #111114;
+}
+
+html.dark .source-document > a,
+html.dark .source-open-tab-link {
+  background: #0d9488;
+  color: #ffffff;
+}
+
+html.dark .source-document > a:hover,
+html.dark .source-open-tab-link:hover {
+  background: #0f766e;
+}
+
+html.dark .source-state {
+  color: #a1a1aa;
+}
+
+html.dark .source-state-error {
+  color: #f87171;
 }
 
 /* Approvals View */
