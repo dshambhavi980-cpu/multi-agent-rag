@@ -17,3 +17,20 @@ export function normalizeMarkdownContent(raw: string): string {
       (_match, citationId: string) => `[${citationId}](citation:${citationId})`,
     );
 }
+
+export function formatAgentStep(node: string): string {
+  const lower = node.toLowerCase();
+  if (lower.includes("retrieve") || lower.includes("search")) {
+    return "Retrieval Agent: Slicing document pages and fetching vector matches";
+  }
+  if (lower.includes("rerank")) {
+    return "Rerank Agent: Cross-encoding relevance and scoring passages";
+  }
+  if (lower.includes("verify") || lower.includes("citation")) {
+    return "Citation Verifier: Grounding claims with original PDF coordinates";
+  }
+  if (lower.includes("synthes") || lower.includes("generate")) {
+    return "Synthesis Agent: Generating grounded multimodal response";
+  }
+  return `Subagent: Executing ${node}`;
+}

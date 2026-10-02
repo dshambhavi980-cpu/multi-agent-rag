@@ -15,6 +15,7 @@ import {
   StarIcon,
 } from "@hugeicons/core-free-icons";
 import { lazy, Suspense, useEffect, useState } from "react";
+import { motion } from "motion/react";
 
 import { SelectMenu } from "../components/SelectMenu";
 import { AuthGate } from "../features/auth/AuthGate";
@@ -182,6 +183,14 @@ function AuthenticatedApp() {
               }}
               className={pathname === path ? "nav-link nav-link-active" : "nav-link"}
             >
+              {pathname === path && (
+                <motion.span
+                  layoutId="activeNavIndicator"
+                  className="nav-link-pill"
+                  transition={{ type: "spring", stiffness: 450, damping: 35 }}
+                  aria-hidden="true"
+                />
+              )}
               <HugeiconsIcon icon={Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
               <span>{label}</span>
             </a>

@@ -184,6 +184,8 @@ test("shows the backend reason when an exact replay is unavailable", async () =>
   renderWithProviders(<RunsPage />);
   await screen.findByText("Replay run");
   fireEvent.click(screen.getByRole("button", { name: "Exact" }));
+  fireEvent.click(screen.getByRole("button", { name: "Current" }));
+  fireEvent.click(screen.getByRole("button", { name: "Exact" }));
   fireEvent.click(screen.getByRole("button", { name: "Start replay" }));
 
   expect(

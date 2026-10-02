@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { normalizeMarkdownContent } from "./chat.utils";
+import { formatAgentStep, normalizeMarkdownContent } from "./chat.utils";
 
 describe("normalizeMarkdownContent", () => {
   test("preserves regular markdown text without changes", () => {
@@ -39,5 +39,30 @@ describe("normalizeMarkdownContent", () => {
     expect(normalizeMarkdownContent(input)).toBe(
       "Features:\n* **High Availability**\n* **Fault Tolerance**",
     );
+  });
+});
+
+describe("formatAgentStep", () => {
+  test("formats retrieval step", () => {
+    expect(formatAgentStep("retrieve")).toContain("Retrieval Agent");
+    expect(formatAgentStep("search_index")).toContain("Retrieval Agent");
+  });
+
+  test("formats rerank step", () => {
+    expect(formatAgentStep("rerank")).toContain("Rerank Agent");
+  });
+
+  test("formats verify step", () => {
+    expect(formatAgentStep("verify")).toContain("Citation Verifier");
+    expect(formatAgentStep("citation_check")).toContain("Citation Verifier");
+  });
+
+  test("formats synthesize step", () => {
+    expect(formatAgentStep("synthesize")).toContain("Synthesis Agent");
+    expect(formatAgentStep("generate_text")).toContain("Synthesis Agent");
+  });
+
+  test("formats default node step", () => {
+    expect(formatAgentStep("custom_node")).toBe("Subagent: Executing custom_node");
   });
 });

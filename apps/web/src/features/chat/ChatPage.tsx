@@ -33,6 +33,8 @@ import {
 } from "../../api/client";
 import { SelectMenu } from "../../components/SelectMenu";
 import { SourceMenu } from "../../components/SourceMenu";
+import { Thinking } from "../../components/Thinking";
+import { ThoughtLine } from "../../components/ThoughtLine";
 import PromptBar, {
   type PromptBarSendDetail,
   type PromptBarSource,
@@ -42,7 +44,7 @@ import { useAuth } from "../auth/auth-context";
 import type { DocumentPage } from "../documents/documents.types";
 import { useWorkspace } from "../workspaces/workspace-context";
 import { SourceViewer } from "./SourceViewer";
-import { normalizeMarkdownContent } from "./chat.utils";
+import { formatAgentStep, normalizeMarkdownContent } from "./chat.utils";
 import type {
   Citation,
   Conversation,
@@ -175,6 +177,7 @@ export function ChatPage() {
   const [streamCitations, setStreamCitations] = useState<Citation[]>([]);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [runState, setRunState] = useState<string | null>(null);
+  const [agentSteps, setAgentSteps] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<Citation | null>(null);
   const [lightbox, setLightbox] = useState<{ src: string; alt?: string } | null>(null);
@@ -233,6 +236,7 @@ export function ChatPage() {
     setStreamCitations([]);
     setPendingQuestion(null);
     setRunState(null);
+    setAgentSteps([]);
     setError(null);
   };
 
@@ -240,12 +244,22 @@ export function ChatPage() {
     if (event.event_type === "answer.delta" && typeof event.delta === "string") {
       const delta = event.delta;
       setStreamed((value) => value + delta);
+      setAgentSteps((steps) => {
+        const step = "Synthesis Agent: Generating grounded answer";
+        return steps.includes(step) ? steps : [...steps, step];
+      });
     }
     if (event.event_type === "citations.available" && Array.isArray(event.citations)) {
       setStreamCitations(event.citations as Citation[]);
+      setAgentSteps((steps) => {
+        const step = "Citation Verifier: Grounding claims with verified passages";
+        return steps.includes(step) ? steps : [...steps, step];
+      });
     }
     if (event.event_type === "agent.step_started" && typeof event.node === "string") {
       setRunState(`Agent: ${event.node}`);
+      const step = formatAgentStep(event.node);
+      setAgentSteps((steps) => (steps.includes(step) ? steps : [...steps, step]));
     }
     if (event.event_type === "run.awaiting_approval") setRunState("Awaiting human review");
     if (event.event_type === "run.completed") setRunState("Completed");
@@ -270,6 +284,10 @@ export function ChatPage() {
     setStreamCitations([]);
     setPendingQuestion(content);
     setRunState("Starting");
+    setAgentSteps([
+      "Query Analyzer: Decomposing request and extracting intents",
+      "Router Agent: Deploying subagents for document search",
+    ]);
     setQuestion("");
     try {
       let conversationId = activeId;
@@ -556,6 +574,36 @@ export function ChatPage() {
                     ? ` - ${runState}`
                     : ""}
                 </span>
+                <div className="agent-thinking-wrapper py-2">
+                  <div className="flex items-center gap-2 mb-2 text-zinc-300">
+                    <Thinking />
+                  </div>
+                  <ThoughtLine
+                    working={sending && !streamed}
+                    steps={
+                      agentSteps.length
+                        ? agentSteps
+                        : [
+                            "Query Analyzer: Decomposing request and extracting intents",
+                            "Router Agent: Deploying subagents for document search",
+                            "Retrieval Agent: Slicing document pages and fetching vector matches",
+                            "Citation Verifier: Grounding claims with original PDF coordinates",
+                            "Synthesis Agent: Generating multimodal response",
+                          ]
+                    }
+                    label="Coordinating subagents…"
+                    doneLabel="Thought for"
+                    glyph="sparkle"
+                    fontSize={13}
+                    breathPeriod={1.6}
+                    breathDepth={0.45}
+                    settleDuration={350}
+                    settleBlur={2}
+                    collapsible
+                    collapseOnSettle={Boolean(streamed)}
+                    showTimer
+                  />
+                </div>
                 {streamed ? (
                   <AnswerContent
                     content={streamed}

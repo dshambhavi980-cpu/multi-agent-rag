@@ -60,6 +60,10 @@ test("loads a pending review and approves edited output with a comment", async (
       }),
     );
   });
+  fireEvent.click(screen.getByRole("button", { name: "All" }));
+  fireEvent.click(screen.getByRole("button", { name: "Approved" }));
+  fireEvent.click(screen.getByRole("button", { name: "Rejected" }));
+  fireEvent.click(screen.getByRole("button", { name: "Pending" }));
 });
 
 test("supports revision and renders empty and failed queues", async () => {

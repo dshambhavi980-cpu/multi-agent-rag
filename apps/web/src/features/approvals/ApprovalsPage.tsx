@@ -12,6 +12,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { requestJson } from "../../api/client";
+import { SegmentedControl } from "../../components/SegmentedControl";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/auth-context";
 import { useWorkspace } from "../workspaces/workspace-context";
@@ -115,21 +116,20 @@ export function ApprovalsPage() {
       </div>
 
       <div className="approval-toolbar">
-        <div className="segmented-control" aria-label="Approval status">
-          {(["pending", "all", "approved", "rejected"] as const).map((status) => (
-            <button
-              key={status}
-              type="button"
-              aria-pressed={filter === status}
-              onClick={() => {
-                setFilter(status);
-                setSelectedId(null);
-              }}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Approval status"
+          value={filter}
+          onChange={(status) => {
+            setFilter(status);
+            setSelectedId(null);
+          }}
+          options={[
+            { value: "pending", label: "Pending" },
+            { value: "all", label: "All" },
+            { value: "approved", label: "Approved" },
+            { value: "rejected", label: "Rejected" },
+          ]}
+        />
         <span className="memory-count">
           {approvals.data?.items.length ?? 0} requests
         </span>

@@ -14,6 +14,7 @@ import {
 import { useMemo, useRef, useState } from "react";
 
 import { ApiClientError, requestJson } from "../../api/client";
+import { SegmentedControl } from "../../components/SegmentedControl";
 import { useAuth } from "../auth/auth-context";
 import { useWorkspace } from "../workspaces/workspace-context";
 import type { ObservabilityTrace, RunPageResult, RunTrace } from "./runs.types";
@@ -371,26 +372,16 @@ export function RunsPage() {
                   >
                     <div className="replay-heading">
                       <h3><HugeiconsIcon icon={RotateCcwIcon} size={16} strokeWidth={1.8} /> Replay run</h3>
-                      <div className="segmented-control" aria-label="Replay mode">
-                        <button
-                          type="button"
-                          aria-pressed={replayMode === "current_configuration"}
-                          onClick={() => {
-                            setReplayMode("current_configuration");
-                          }}
-                        >
-                          Current
-                        </button>
-                        <button
-                          type="button"
-                          aria-pressed={replayMode === "exact_snapshot"}
-                          onClick={() => {
-                            setReplayMode("exact_snapshot");
-                          }}
-                        >
-                          Exact
-                        </button>
-                      </div>
+                      <SegmentedControl
+                        label="Replay mode"
+                        value={replayMode}
+                        onChange={setReplayMode}
+                        size="sm"
+                        options={[
+                          { value: "current_configuration", label: "Current" },
+                          { value: "exact_snapshot", label: "Exact" },
+                        ]}
+                      />
                     </div>
                     <label>
                       Replay reason

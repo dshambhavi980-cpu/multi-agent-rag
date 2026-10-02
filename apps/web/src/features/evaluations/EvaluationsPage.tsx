@@ -7,9 +7,11 @@ import {
   PlayIcon,
   RefreshIcon,
 } from "@hugeicons/core-free-icons";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 import { ApiClientError, requestJson } from "../../api/client";
+import { AnimatedCheckbox } from "../../components/AnimatedCheckbox";
+import { SegmentedControl } from "../../components/SegmentedControl";
 import { useAuth } from "../auth/auth-context";
 import { useWorkspace } from "../workspaces/workspace-context";
 
@@ -88,9 +90,17 @@ export function EvaluationsPage() {
         ? 2_000
         : false,
   });
+  const [filter, setFilter] = useState<"all" | "passed" | "blocked">("all");
+  const filteredEvaluations = useMemo(() => {
+    const items = evaluations.data?.items ?? [];
+    if (filter === "passed") return items.filter((item) => item.gate_passed === true);
+    if (filter === "blocked") return items.filter((item) => item.gate_passed === false);
+    return items;
+  }, [evaluations.data?.items, filter]);
+
   const activeId =
-    evaluations.data?.items.find((item) => item.id === selectedId)?.id ??
-    evaluations.data?.items[0]?.id ??
+    filteredEvaluations.find((item) => item.id === selectedId)?.id ??
+    filteredEvaluations[0]?.id ??
     null;
   const detail = useQuery({
     queryKey: ["evaluation", workspaceId, activeId],
@@ -154,22 +164,28 @@ export function EvaluationsPage() {
         <fieldset>
           <legend>Variants</legend>
           <div className="evaluation-variants">
-            {variants.map((variant) => (
-              <label key={variant.id}>
-                <input
-                  type="checkbox"
-                  checked={selectedVariants.includes(variant.id)}
-                  onChange={(event) => {
-                    setSelectedVariants((current) =>
-                      event.target.checked
-                        ? [...current, variant.id]
-                        : current.filter((item) => item !== variant.id),
-                    );
-                  }}
-                />
-                <span><strong>{variant.label}</strong><small>{variant.cost}</small></span>
-              </label>
-            ))}
+            {variants.map((variant) => {
+              const isChecked = selectedVariants.includes(variant.id);
+              return (
+                <label key={variant.id} className="evaluation-variant-card">
+                  <AnimatedCheckbox
+                    checked={isChecked}
+                    aria-label={variant.label}
+                    onChange={(checked) => {
+                      setSelectedVariants((current) =>
+                        checked
+                          ? [...current, variant.id]
+                          : current.filter((item) => item !== variant.id),
+                      );
+                    }}
+                  />
+                  <span className="evaluation-variant-info">
+                    <strong>{variant.label}</strong>
+                    <small>{variant.cost}</small>
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </fieldset>
         <div className="evaluation-run-controls">
@@ -219,29 +235,44 @@ export function EvaluationsPage() {
 
       {evaluations.data?.items.length ? (
         <div className="evaluation-workspace">
-          <div className="evaluation-grid" aria-label="Evaluation runs">
-            {evaluations.data.items.map((evaluation) => (
-              <button
-                type="button"
-                className={
-                  activeId === evaluation.id
-                    ? "evaluation-row evaluation-row-active"
-                    : "evaluation-row"
-                }
-                key={evaluation.id}
-                onClick={() => {
-                  setSelectedId(evaluation.id);
-                }}
-              >
-                <div>
-                  <strong>{evaluation.suite}</strong>
-                  <p>{evaluation.variants.join(", ")}</p>
-                </div>
-                <span className="status-badge">{evaluation.status}</span>
-                <span>{evaluation.case_count} cases</span>
-                <time>{new Date(evaluation.created_at).toLocaleDateString()}</time>
-              </button>
-            ))}
+          <div className="evaluation-grid-column">
+            <div className="evaluation-filter-toolbar">
+              <SegmentedControl
+                label="Evaluation filter"
+                value={filter}
+                onChange={setFilter}
+                size="sm"
+                options={[
+                  { value: "all", label: "All runs" },
+                  { value: "passed", label: "Passed" },
+                  { value: "blocked", label: "Blocked" },
+                ]}
+              />
+            </div>
+            <div className="evaluation-grid" aria-label="Evaluation runs">
+              {filteredEvaluations.map((evaluation) => (
+                <button
+                  type="button"
+                  className={
+                    activeId === evaluation.id
+                      ? "evaluation-row evaluation-row-active"
+                      : "evaluation-row"
+                  }
+                  key={evaluation.id}
+                  onClick={() => {
+                    setSelectedId(evaluation.id);
+                  }}
+                >
+                  <div>
+                    <strong>{evaluation.suite}</strong>
+                    <p>{evaluation.variants.join(", ")}</p>
+                  </div>
+                  <span className="status-badge">{evaluation.status}</span>
+                  <span>{evaluation.case_count} cases</span>
+                  <time>{new Date(evaluation.created_at).toLocaleDateString()}</time>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="evaluation-detail">
             {selected ? (

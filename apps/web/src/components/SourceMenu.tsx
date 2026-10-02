@@ -1,6 +1,7 @@
 import { HugeiconsIcon } from "@hugeicons/react";
 import { Cancel01Icon, File02Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useRef, useState } from "react";
+import { AnimatedCheckbox } from "./AnimatedCheckbox";
 
 type SourceOption = {
   id: string;
@@ -85,12 +86,12 @@ export function SourceMenu({ options, selected, disabled = false, onChange }: Pr
                 const checked = selected.includes(option.id);
                 return (
                   <label key={option.id}>
-                    <input
-                      type="checkbox"
+                    <AnimatedCheckbox
                       checked={checked}
-                      onChange={(event) => {
+                      aria-label={option.label}
+                      onChange={(isCheck) => {
                         onChange(
-                          event.target.checked
+                          isCheck
                             ? [...selected, option.id]
                             : selected.filter((id) => id !== option.id),
                         );

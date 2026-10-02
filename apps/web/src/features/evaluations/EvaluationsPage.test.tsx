@@ -99,6 +99,9 @@ test("launches a reviewed evaluation and displays release metrics", async () => 
       expect.objectContaining({ method: "POST" }),
     );
   });
+  fireEvent.click(screen.getByRole("button", { name: "Passed" }));
+  fireEvent.click(screen.getByRole("button", { name: "Blocked" }));
+  fireEvent.click(screen.getByRole("button", { name: "All runs" }));
   fireEvent.click(screen.getByRole("button", { name: "Refresh evaluations" }));
   expect(mocks.requestJson).toHaveBeenCalled();
 });

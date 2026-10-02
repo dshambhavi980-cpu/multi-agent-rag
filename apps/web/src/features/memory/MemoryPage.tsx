@@ -10,6 +10,7 @@ import {
 import { useState } from "react";
 
 import { requestJson } from "../../api/client";
+import { SegmentedControl } from "../../components/SegmentedControl";
 import { useAuth } from "../auth/auth-context";
 import { useWorkspace } from "../workspaces/workspace-context";
 import type {
@@ -74,20 +75,16 @@ export function MemoryPage() {
       </div>
 
       <div className="memory-toolbar">
-        <div className="segmented-control" aria-label="Memory visibility">
-          {(["all", "private", "workspace"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={visibility === option}
-              onClick={() => {
-                setVisibility(option);
-              }}
-            >
-              {option === "all" ? "All" : option === "private" ? "Private" : "Workspace"}
-            </button>
-          ))}
-        </div>
+        <SegmentedControl
+          label="Memory visibility"
+          value={visibility}
+          onChange={setVisibility}
+          options={[
+            { value: "all", label: "All" },
+            { value: "private", label: "Private" },
+            { value: "workspace", label: "Workspace" },
+          ]}
+        />
         <span className="memory-count">
           {memories.data?.items.length ?? 0} active
         </span>
