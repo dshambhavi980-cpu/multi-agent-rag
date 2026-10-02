@@ -40,6 +40,7 @@ import PromptBar, {
 } from "../../components/PromptBar";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useAuth } from "../auth/auth-context";
+import { useTheme } from "../theme/theme-context";
 import type { DocumentPage } from "../documents/documents.types";
 import { useWorkspace } from "../workspaces/workspace-context";
 import { SourceViewer } from "./SourceViewer";
@@ -164,6 +165,8 @@ function TopbarPortal({
 export function ChatPage() {
   const { session } = useAuth();
   const { activeWorkspace } = useWorkspace();
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === "dark";
   const queryClient = useQueryClient();
   const online = useOnlineStatus();
   const workspaceId = activeWorkspace?.id;
@@ -644,10 +647,10 @@ export function ChatPage() {
                 void send(undefined, text, detail);
               }}
               onDictate={handleDictate}
-              background="#18181b"
-              color="#f4f4f5"
-              menuBackground="#27272a"
-              sparkColor="#b39dff"
+              background={isDark ? "#18181b" : "#ffffff"}
+              color={isDark ? "#f4f4f5" : "#09090b"}
+              menuBackground={isDark ? "#27272a" : "#ffffff"}
+              sparkColor={isDark ? "#b39dff" : "#7c3aed"}
               width={760}
               radius={16}
               className="w-full max-w-3xl"

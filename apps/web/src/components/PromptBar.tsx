@@ -1132,7 +1132,7 @@ const PromptBar: React.FC<PromptBarProps> = ({
 
         <div
 
-          className="absolute inset-x-0 bottom-[calc(100%+8px)] z-[2] origin-bottom rounded-xl border border-zinc-800/80 p-1 shadow-xl [animation:prompt-bar-pop_180ms_cubic-bezier(0.23,1,0.32,1)_both] [background:var(--pb-menu)] data-[kind=at]:right-auto data-[kind=at]:w-[340px] data-[kind=at]:max-w-[calc(100vw-32px)] data-[kind=at]:origin-bottom-left data-[kind=slash]:right-auto data-[kind=slash]:w-[320px] data-[kind=slash]:max-w-[calc(100vw-32px)] data-[kind=slash]:origin-bottom-left data-[kind=model]:right-auto data-[kind=model]:w-[200px] data-[kind=model]:origin-bottom-left data-[kind=effort]:right-auto data-[kind=effort]:w-[248px] data-[kind=effort]:origin-bottom-left data-[kind=effort]:px-3.5 data-[kind=effort]:pt-3 data-[kind=effort]:pb-3.5 motion-reduce:[animation:none]"
+          className="absolute inset-x-0 bottom-[calc(100%+8px)] z-[2] origin-bottom rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 p-1 shadow-xl [animation:prompt-bar-pop_180ms_cubic-bezier(0.23,1,0.32,1)_both] [background:var(--pb-menu)] data-[kind=at]:right-auto data-[kind=at]:w-[340px] data-[kind=at]:max-w-[calc(100vw-32px)] data-[kind=at]:origin-bottom-left data-[kind=slash]:right-auto data-[kind=slash]:w-[320px] data-[kind=slash]:max-w-[calc(100vw-32px)] data-[kind=slash]:origin-bottom-left data-[kind=model]:right-auto data-[kind=model]:w-[200px] data-[kind=model]:origin-bottom-left data-[kind=effort]:right-auto data-[kind=effort]:w-[248px] data-[kind=effort]:origin-bottom-left data-[kind=effort]:px-3.5 data-[kind=effort]:pt-3 data-[kind=effort]:pb-3.5 motion-reduce:[animation:none]"
 
           role={open === 'effort' ? 'dialog' : 'listbox'}
 
@@ -1366,7 +1366,7 @@ const PromptBar: React.FC<PromptBarProps> = ({
 
       <div
 
-        className="relative isolate flex cursor-text flex-col gap-2 p-3 [background:var(--pb-bg)] [border-radius:var(--pb-radius)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:opacity-0 before:content-[''] before:[background:radial-gradient(140%_120%_at_0%_100%,color-mix(in_srgb,var(--pb-spark)_26%,transparent),transparent_62%)] before:[transition:opacity_500ms_ease] data-[max]:before:opacity-100"
+        className="relative isolate flex cursor-text flex-col gap-2 p-3 border border-zinc-200/90 dark:border-zinc-800 shadow-sm [background:var(--pb-bg)] [border-radius:var(--pb-radius)] before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:opacity-0 before:content-[''] before:[background:radial-gradient(140%_120%_at_0%_100%,color-mix(in_srgb,var(--pb-spark)_26%,transparent),transparent_62%)] before:[transition:opacity_500ms_ease] data-[max]:before:opacity-100"
 
         role="presentation"
 

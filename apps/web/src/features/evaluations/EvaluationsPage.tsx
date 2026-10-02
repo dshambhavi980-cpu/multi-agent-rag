@@ -140,23 +140,42 @@ export function EvaluationsPage() {
           <p className="eyebrow">Measured release quality</p>
           <h1 id="evaluations-title">Evaluations</h1>
         </div>
-        <button
-          className="icon-button bordered"
-          type="button"
-          aria-label="Refresh evaluations"
-          onClick={() => void evaluations.refetch()}
-        >
-          <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} />
-        </button>
+        <div className="page-heading-toolbar">
+          <label className="evaluation-case-count">
+            <span>Cases</span>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              value={maxCases}
+              aria-label="Evaluation cases count"
+              onChange={(event) => {
+                setMaxCases(Math.min(50, Math.max(1, Number(event.target.value))));
+              }}
+            />
+          </label>
+          <button
+            className="primary-button run-eval-btn"
+            type="button"
+            disabled={!selectedVariants.length || create.isPending}
+            onClick={() => {
+              if (selectedVariants.length) create.mutate();
+            }}
+          >
+            <HugeiconsIcon icon={PlayIcon} size={16} strokeWidth={1.8} /> {create.isPending ? "Starting..." : "Run evaluation"}
+          </button>
+          <button
+            className="icon-button bordered"
+            type="button"
+            aria-label="Refresh evaluations"
+            onClick={() => void evaluations.refetch()}
+          >
+            <HugeiconsIcon icon={RefreshIcon} size={18} strokeWidth={1.8} />
+          </button>
+        </div>
       </div>
 
-      <form
-        className="evaluation-launcher"
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (selectedVariants.length) create.mutate();
-        }}
-      >
+      <div className="evaluation-launcher">
         <div className="evaluation-launcher-intro">
           <h2>Run comparison</h2>
           <p>Retrieval modes are inexpensive. Answer modes consume free Gemini quota.</p>
@@ -188,31 +207,10 @@ export function EvaluationsPage() {
             })}
           </div>
         </fieldset>
-        <div className="evaluation-run-controls">
-          <label className="evaluation-case-count">
-            Cases
-            <input
-              type="number"
-              min={1}
-              max={50}
-              value={maxCases}
-              onChange={(event) => {
-                setMaxCases(Math.min(50, Math.max(1, Number(event.target.value))));
-              }}
-            />
-          </label>
-          <button
-            className="primary-button"
-            type="submit"
-            disabled={!selectedVariants.length || create.isPending}
-          >
-            <HugeiconsIcon icon={PlayIcon} size={16} strokeWidth={1.8} /> {create.isPending ? "Starting..." : "Run evaluation"}
-          </button>
-        </div>
         {create.isError ? (
           <p className="field-error" role="alert">Evaluation could not be started.</p>
         ) : null}
-      </form>
+      </div>
 
       {evaluations.isLoading ? <p className="table-message">Loading evaluations...</p> : null}
       {unavailable ? (
