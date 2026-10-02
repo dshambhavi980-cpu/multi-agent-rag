@@ -60,3 +60,23 @@ export function formatAgentStep(node: string): string {
   }
   return `Subagent: Executing ${node}`;
 }
+
+export function formatConversationDisplay(rawTitle: string | null | undefined): {
+  docName: string | null;
+  title: string;
+} {
+  const trimmed = (rawTitle ?? "Untitled conversation").trim();
+  const docMatch = trimmed.match(/^@([^\s]+)\s*(.*)$/);
+  if (docMatch && docMatch[1]) {
+    const docName = docMatch[1];
+    const cleanText = docMatch[2]?.trim() || "Document discussion";
+    return {
+      docName,
+      title: cleanText.charAt(0).toUpperCase() + cleanText.slice(1),
+    };
+  }
+  return {
+    docName: null,
+    title: trimmed ? trimmed.charAt(0).toUpperCase() + trimmed.slice(1) : "Untitled conversation",
+  };
+}

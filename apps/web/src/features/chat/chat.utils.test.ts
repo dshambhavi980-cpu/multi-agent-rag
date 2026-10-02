@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { formatAgentStep, normalizeMarkdownContent } from "./chat.utils";
+import { formatAgentStep, formatConversationDisplay, normalizeMarkdownContent } from "./chat.utils";
 
 describe("normalizeMarkdownContent", () => {
   test("preserves regular markdown text without changes", () => {
@@ -64,5 +64,30 @@ describe("formatAgentStep", () => {
 
   test("formats default node step", () => {
     expect(formatAgentStep("custom_node")).toBe("Subagent: Executing custom_node");
+  });
+});
+
+describe("formatConversationDisplay", () => {
+  test("extracts document tag and formats title cleanly", () => {
+    const res = formatConversationDisplay("@Shambhavi_Dubey_Resume.pdf describe my internship experience");
+    expect(res.docName).toBe("Shambhavi_Dubey_Resume.pdf");
+    expect(res.title).toBe("Describe my internship experience");
+  });
+
+  test("handles document tag with empty query text", () => {
+    const res = formatConversationDisplay("@Manual.pdf");
+    expect(res.docName).toBe("Manual.pdf");
+    expect(res.title).toBe("Document discussion");
+  });
+
+  test("formats plain title without document tag", () => {
+    const res = formatConversationDisplay("how does rate limiting work?");
+    expect(res.docName).toBeNull();
+    expect(res.title).toBe("How does rate limiting work?");
+  });
+
+  test("handles null or undefined title", () => {
+    expect(formatConversationDisplay(null).title).toBe("Untitled conversation");
+    expect(formatConversationDisplay(undefined).title).toBe("Untitled conversation");
   });
 });

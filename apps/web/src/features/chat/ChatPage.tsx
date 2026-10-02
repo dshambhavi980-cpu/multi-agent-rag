@@ -46,7 +46,7 @@ import { useTheme } from "../theme/theme-context";
 import type { DocumentPage } from "../documents/documents.types";
 import { useWorkspace } from "../workspaces/workspace-context";
 import { SourceViewer } from "./SourceViewer";
-import { formatAgentStep, normalizeMarkdownContent } from "./chat.utils";
+import { formatAgentStep, formatConversationDisplay, normalizeMarkdownContent } from "./chat.utils";
 import type {
   Citation,
   Conversation,
@@ -589,25 +589,16 @@ export function ChatPage() {
                   ) : null}
                   {message.role === "assistant" ? (
                     <>
-                      {mode !== "simple" ? (
+                      {mode !== "simple" && thought && thought.steps.length > 0 ? (
                         <div className="agent-thinking-wrapper py-1">
                           <ThoughtLine
                             working={false}
-                            steps={
-                              thought?.steps && thought.steps.length > 0
-                                ? thought.steps
-                                : message.citations && message.citations.length > 0
-                                ? [
-                                    "Synthesis Agent: Generating grounded answer",
-                                    `Citation Verifier: Grounded claims with ${message.citations.length} verified source passages`,
-                                  ]
-                                : ["Synthesis Agent: Generating grounded answer"]
-                            }
+                            steps={thought.steps}
                             label="Coordinating subagents…"
                             doneLabel="Thought for"
                             glyph="sparkle"
                             fontSize={13}
-                            elapsed={thought?.duration ?? 1.8}
+                            elapsed={thought.duration}
                             collapsible
                             collapseOnSettle={true}
                             showTimer
@@ -939,7 +930,12 @@ export function ChatPage() {
                       <div className="conversation-modal-item-content">
                         <div className="flex items-center gap-2">
                           <span className="conversation-modal-item-title">
-                            {conversation.title ?? "Untitled conversation"}
+                            {(() => {
+                              const display = formatConversationDisplay(conversation.title);
+                              return display.docName
+                                ? `${display.title} — ${display.docName}`
+                                : display.title;
+                            })()}
                           </span>
                           {isActive ? (
                             <span className="conversation-modal-item-badge">Active</span>
