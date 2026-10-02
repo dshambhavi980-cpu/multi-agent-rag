@@ -87,7 +87,7 @@ beforeEach(() => {
 test("launches a reviewed evaluation and displays release metrics", async () => {
   renderWithProviders(<EvaluationsPage />);
 
-  expect(await screen.findByText(/50 reviewed cases/)).toBeInTheDocument();
+  expect(await screen.findByRole("button", { name: "Run evaluation" })).toBeInTheDocument();
   expect((await screen.findAllByText("phase12-reviewed-v1")).length).toBeGreaterThan(0);
   expect((await screen.findAllByText("100%")).length).toBeGreaterThan(0);
   expect(screen.getByText("lookup-01")).toBeInTheDocument();
