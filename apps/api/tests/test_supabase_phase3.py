@@ -23,7 +23,7 @@ async def test_admin_rpc_and_claim() -> None:
         base_url="https://example.supabase.co/rest/v1/rpc",
         transport=httpx.MockTransport(lambda request: responses.pop(0)),
     )
-    assert await admin.rpc("function", {}) == {"ok": True}
+    assert await admin.rpc("function", {}, request_timeout=30.0) == {"ok": True}
     assert (await admin.claim(30, 1))[0]["msg_id"] == 1
     await admin.aclose()
 
@@ -59,7 +59,7 @@ async def test_admin_maps_errors_and_unavailable() -> None:
     await admin.aclose()
     unavailable = UnavailableAdminClient()
     with pytest.raises(ApplicationError):
-        await unavailable.rpc("function", {})
+        await unavailable.rpc("function", {}, request_timeout=10.0)
     await unavailable.aclose()
 
 

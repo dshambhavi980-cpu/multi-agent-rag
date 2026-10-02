@@ -18,7 +18,8 @@ class Admin:
         del visibility, batch
         return []
 
-    async def rpc(self, name: str, payload: dict[str, Any]) -> Any:
+    async def rpc(self, name: str, payload: dict[str, Any], **kwargs: Any) -> Any:
+        del kwargs
         self.calls.append((name, payload))
         if name == "start_document_ingestion":
             return self.start
@@ -125,3 +126,15 @@ async def test_reindexes_from_retained_pages_without_storage_download() -> None:
     names = [call[0] for call in admin.calls]
     assert "load_document_for_indexing" in names
     assert "complete_document_ingestion" in names
+
+
+async def test_uses_cached_content_without_storage_download() -> None:
+    admin = Admin()
+    instance = worker(admin, Storage(AssertionError("storage should not be downloaded")))
+    instance.cache_document_content("one.txt", b"# Heading\n\nhello")
+    instance.notify()
+    await instance.process(item())
+    names = [call[0] for call in admin.calls]
+    assert "complete_document_ingestion" in names
+    assert instance.pop_cached_content("one.txt") is None
+

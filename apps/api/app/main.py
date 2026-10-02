@@ -21,6 +21,10 @@ from app.api.routes.retrieval import router as retrieval_router
 from app.api.routes.system import router as system_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
+from app.infrastructure.cloudflare import (
+    CloudflareEmbeddingClient,
+    CloudflareEmbeddingConfig,
+)
 from app.infrastructure.gemini import (
     GeminiEmbeddingClient,
     GeminiEmbeddingConfig,
@@ -49,20 +53,51 @@ from app.services.retrieval import HybridRetrievalService, RetrievalConfig
 
 def _build_embedding_client(
     settings: Settings,
-) -> GeminiEmbeddingClient | UnavailableEmbeddingClient:
-    if settings.gemini_api_key is None:
+) -> CloudflareEmbeddingClient | GeminiEmbeddingClient | UnavailableEmbeddingClient:
+    if settings.embedding_provider == "cloudflare":
+        if settings.cloudflare_account_id and settings.cloudflare_api_token:
+            return CloudflareEmbeddingClient(
+                account_id=settings.cloudflare_account_id,
+                api_token=settings.cloudflare_api_token.get_secret_value(),
+                config=CloudflareEmbeddingConfig(
+                    model=settings.cloudflare_embedding_model,
+                    dimensions=settings.embedding_dimensions,
+                    timeout_seconds=settings.embedding_timeout_seconds,
+                    max_retries=settings.embedding_max_retries,
+                    retry_base_seconds=settings.embedding_retry_base_seconds,
+                    resilience=_resilience_config(settings),
+                ),
+            )
+        if settings.gemini_api_key is not None:
+            return GeminiEmbeddingClient(
+                api_key=settings.gemini_api_key.get_secret_value(),
+                config=GeminiEmbeddingConfig(
+                    model=settings.gemini_embedding_model,
+                    dimensions=settings.embedding_dimensions,
+                    timeout_seconds=settings.embedding_timeout_seconds,
+                    max_retries=settings.embedding_max_retries,
+                    retry_base_seconds=settings.embedding_retry_base_seconds,
+                    resilience=_resilience_config(settings),
+                ),
+            )
         return UnavailableEmbeddingClient()
-    return GeminiEmbeddingClient(
-        api_key=settings.gemini_api_key.get_secret_value(),
-        config=GeminiEmbeddingConfig(
-            model=settings.gemini_embedding_model,
-            dimensions=settings.embedding_dimensions,
-            timeout_seconds=settings.embedding_timeout_seconds,
-            max_retries=settings.embedding_max_retries,
-            retry_base_seconds=settings.embedding_retry_base_seconds,
-            resilience=_resilience_config(settings),
-        ),
-    )
+
+    if settings.embedding_provider == "gemini":
+        if settings.gemini_api_key is None:
+            return UnavailableEmbeddingClient()
+        return GeminiEmbeddingClient(
+            api_key=settings.gemini_api_key.get_secret_value(),
+            config=GeminiEmbeddingConfig(
+                model=settings.gemini_embedding_model,
+                dimensions=settings.embedding_dimensions,
+                timeout_seconds=settings.embedding_timeout_seconds,
+                max_retries=settings.embedding_max_retries,
+                retry_base_seconds=settings.embedding_retry_base_seconds,
+                resilience=_resilience_config(settings),
+            ),
+        )
+
+    return UnavailableEmbeddingClient()
 
 
 def _build_retrieval_service(
@@ -279,7 +314,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
             resolved_settings.ingestion_worker_enabled
             and isinstance(application.state.supabase_admin, SupabaseAdminClient)
             and isinstance(application.state.supabase_storage, SupabaseStorageClient)
-            and isinstance(application.state.embeddings, GeminiEmbeddingClient)
+            and not isinstance(application.state.embeddings, UnavailableEmbeddingClient)
         ):
             worker = IngestionWorker(
                 admin=application.state.supabase_admin,
@@ -296,6 +331,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:  # noqa: PLR0915
                     chunk_overlap_chars=resolved_settings.index_overlap_chars,
                     embedding_batch_size=resolved_settings.embedding_batch_size,
                     embedding_batch_delay_seconds=(resolved_settings.embedding_batch_delay_seconds),
+                    rpc_timeout_seconds=resolved_settings.ingestion_rpc_timeout_seconds,
                 ),
             )
             worker.start()

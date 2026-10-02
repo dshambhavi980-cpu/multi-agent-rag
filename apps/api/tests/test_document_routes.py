@@ -189,6 +189,20 @@ async def test_upload_list_complete_and_get_job(client: AsyncClient) -> None:
     assert create.json()["object_path"].endswith("/source.txt")
     assert "one.txt" not in create.json()["object_path"]
 
+    class MockWorker:
+        def __init__(self) -> None:
+            self.notified = False
+            self.cached: tuple[str, bytes] | None = None
+
+        def notify(self) -> None:
+            self.notified = True
+
+        def cache_document_content(self, path: str, data: bytes) -> None:
+            self.cached = (path, data)
+
+    mock_worker = MockWorker()
+    client._transport.app.state.ingestion_worker = mock_worker  # type: ignore[attr-defined]
+
     complete = await client.post(
         "/v1/documents/complete-upload",
         headers=headers(),
@@ -196,6 +210,8 @@ async def test_upload_list_complete_and_get_job(client: AsyncClient) -> None:
     )
     assert complete.status_code == 202
     assert complete.json()["document"]["status"] == "queued"
+    assert mock_worker.notified is True
+    assert mock_worker.cached == (PATH, PAYLOAD)
 
     listed = await client.get("/v1/documents", headers=headers())
     assert listed.json()["items"][0]["filename"] == "one.txt"

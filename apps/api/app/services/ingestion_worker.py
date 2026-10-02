@@ -1,4 +1,5 @@
 import asyncio
+import time
 from contextlib import suppress
 from dataclasses import dataclass
 from typing import Any, Protocol, cast
@@ -24,6 +25,7 @@ class WorkerConfig:
     chunk_overlap_chars: int = 0
     embedding_batch_size: int = 64
     embedding_batch_delay_seconds: float = 0.25
+    rpc_timeout_seconds: float = 120.0
 
 
 @dataclass(frozen=True)
@@ -57,7 +59,23 @@ class IngestionWorker:
         self.embeddings = embeddings
         self.config = config
         self._stop = asyncio.Event()
+        self._wake_event = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
+        self._content_cache: dict[str, tuple[bytes, float]] = {}
+
+    def notify(self) -> None:
+        self._wake_event.set()
+
+    def cache_document_content(self, object_path: str, content: bytes) -> None:
+        now = time.monotonic()
+        self._content_cache = {
+            k: v for k, v in self._content_cache.items() if now - v[1] < 300.0
+        }
+        self._content_cache[object_path] = (content, now)
+
+    def pop_cached_content(self, object_path: str) -> bytes | None:
+        item = self._content_cache.pop(object_path, None)
+        return item[0] if item is not None else None
 
     def start(self) -> None:
         self._task = asyncio.create_task(self.run(), name="document-ingestion-worker")
@@ -76,7 +94,13 @@ class IngestionWorker:
                     self.config.visibility_seconds, self.config.batch_size
                 )
                 if not messages:
-                    await asyncio.sleep(self.config.poll_seconds)
+                    try:
+                        await asyncio.wait_for(
+                            self._wake_event.wait(), timeout=self.config.poll_seconds
+                        )
+                        self._wake_event.clear()
+                    except TimeoutError:
+                        pass
                     continue
                 for message in messages:
                     await self.process(message)
@@ -106,6 +130,7 @@ class IngestionWorker:
                     await self.admin.rpc(
                         "load_document_for_indexing",
                         {"p_document_id": str(payload["document_id"])},
+                        request_timeout=self.config.rpc_timeout_seconds,
                     ),
                 )
                 pages = [
@@ -117,7 +142,10 @@ class IngestionWorker:
                 ]
                 pages_json: list[dict[str, object]] = []
             else:
-                data = await self.storage.download(str(payload["object_path"]))
+                object_path = str(payload["object_path"])
+                data = self.pop_cached_content(object_path)
+                if data is None:
+                    data = await self.storage.download(object_path)
                 parsed = await asyncio.wait_for(
                     asyncio.to_thread(
                         parse_document, data, cast(ContentType, str(payload["content_type"]))
@@ -168,6 +196,7 @@ class IngestionWorker:
                     "p_embedding_model": self.embeddings.model,
                     "p_embedding_dimensions": self.embeddings.dimensions,
                 },
+                request_timeout=self.config.rpc_timeout_seconds,
             )
             await self.admin.rpc("archive_document_ingestion", {"p_message_id": message_id})
 

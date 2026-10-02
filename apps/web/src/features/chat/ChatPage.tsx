@@ -128,6 +128,7 @@ export function ChatPage() {
   const [source, setSource] = useState<Citation | null>(null);
   const [conversationsOpen, setConversationsOpen] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const awaitingReview = runState === "Awaiting human review";
   const headers = {
     Authorization: `Bearer ${session?.access_token ?? ""}`,
@@ -255,7 +256,16 @@ export function ChatPage() {
     }
   };
 
-  const messages: Message[] = detail.data?.messages ?? [];
+  const messages: Message[] = useMemo(
+    () => detail.data?.messages ?? [],
+    [detail.data?.messages],
+  );
+
+  useLayoutEffect(() => {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+    scrollContainer.scrollTop = scrollContainer.scrollHeight;
+  }, [messages, streamed, pendingQuestion, runState]);
 
   return (
     <section className="chat-page" aria-labelledby="chat-title">
@@ -356,7 +366,7 @@ export function ChatPage() {
         </aside>
 
         <div className="chat-thread">
-          <div className="message-scroll" aria-live="polite" aria-busy={sending}>
+          <div className="message-scroll" ref={scrollRef} aria-live="polite" aria-busy={sending}>
             {!messages.length && !pendingQuestion ? (
               <div className="chat-empty">
                 <Bot size={26} />
@@ -392,7 +402,10 @@ export function ChatPage() {
             {sending || streamed ? (
               <article className="message message-assistant message-streaming">
                 <span className="message-role">
-                  DocPilot {runState ? `- ${runState}` : ""}
+                  DocPilot
+                  {runState && !["accepted", "starting"].includes(runState.toLowerCase())
+                    ? ` - ${runState}`
+                    : ""}
                 </span>
                 {streamed ? (
                   <AnswerContent

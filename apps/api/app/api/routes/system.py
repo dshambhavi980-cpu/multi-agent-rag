@@ -42,7 +42,9 @@ async def get_version(request: Request) -> Version:
         "agent_max_steps": settings.agent_max_steps,
         "cors_origins": sorted(str(origin).rstrip("/") for origin in settings.cors_origins),
         "cors_origin_regex": settings.cors_origin_regex,
-        "embedding_model": settings.gemini_embedding_model,
+        "embedding_model": getattr(
+            request.app.state.embeddings, "model", settings.gemini_embedding_model
+        ),
         "environment": settings.environment,
         "generation_model": settings.gemini_chat_model,
         "index_strategy": settings.index_strategy,
