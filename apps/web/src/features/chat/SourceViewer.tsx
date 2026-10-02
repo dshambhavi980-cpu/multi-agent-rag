@@ -146,6 +146,18 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
             <h2 id="source-title">{citation.label}</h2>
           </div>
           <div className="source-heading-actions">
+            {source ? (
+              <a
+                href={source}
+                target="_blank"
+                rel="noreferrer"
+                className="icon-button"
+                title="Open full document in a new tab"
+                aria-label="Open full document in a new tab"
+              >
+                <HugeiconsIcon icon={LinkSquare01Icon} size={18} strokeWidth={1.8} />
+              </a>
+            ) : null}
             <button className="icon-button" type="button" aria-label="Close source" onClick={onClose}>
               <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.8} />
             </button>
@@ -156,22 +168,32 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
           {pagePreviewUrl ? (
             <div className="source-page-preview-card">
               <div className="source-page-preview-bar">
-                <span className="source-page-tag">
-                  Page {String(citation.page ?? 1)} Scan • Highlighted
-                </span>
-                <button
-                  type="button"
-                  className="source-expand-btn"
-                  onClick={() => {
-                    setPreviewImage({
-                      src: pagePreviewUrl,
-                      alt: `Page ${String(citation.page ?? 1)} with highlighted citation`,
-                    });
-                  }}
-                  title="Click to expand page in fullscreen"
-                >
-                  <HugeiconsIcon icon={ArrowExpand01Icon} size={13} strokeWidth={1.8} /> Fullscreen
-                </button>
+                <div className="source-page-preview-actions">
+                  {source ? (
+                    <a
+                      href={source}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="source-action-btn"
+                      title="Open full document in a new tab"
+                    >
+                      <HugeiconsIcon icon={LinkSquare01Icon} size={13} strokeWidth={1.8} /> Open in new tab
+                    </a>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="source-action-btn"
+                    onClick={() => {
+                      setPreviewImage({
+                        src: pagePreviewUrl,
+                        alt: `Page ${String(citation.page ?? 1)} with highlighted citation`,
+                      });
+                    }}
+                    title="Click to expand page in fullscreen"
+                  >
+                    <HugeiconsIcon icon={ArrowExpand01Icon} size={13} strokeWidth={1.8} /> Fullscreen
+                  </button>
+                </div>
               </div>
               <div
                 className="source-page-img-box"
@@ -205,17 +227,27 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
               <span>The protected source could not be opened.</span>
             </div>
           ) : null}
+          {source && !pagePreviewUrl ? (
+            <div className="source-page-preview-bar">
+              <div className="source-page-preview-actions">
+                <a
+                  href={source}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="source-action-btn"
+                  title="Open full document in a new tab"
+                >
+                  <HugeiconsIcon icon={LinkSquare01Icon} size={13} strokeWidth={1.8} /> Open in new tab
+                </a>
+              </div>
+            </div>
+          ) : null}
           {source ? (
-            <>
-              <iframe
-                title={citation.label}
-                src={source}
-                className={pagePreviewUrl ? "source-iframe hidden" : "source-iframe"}
-              />
-              <a href={source} target="_blank" rel="noreferrer" className="source-open-tab-link">
-                <HugeiconsIcon icon={LinkSquare01Icon} size={15} strokeWidth={1.8} /> Open full document in a new tab
-              </a>
-            </>
+            <iframe
+              title={citation.label}
+              src={source}
+              className={pagePreviewUrl ? "source-iframe hidden" : "source-iframe"}
+            />
           ) : null}
         </div>
       </aside>

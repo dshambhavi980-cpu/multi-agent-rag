@@ -141,9 +141,10 @@ test("loads and displays single page preview with highlight", async () => {
     />,
   );
 
-  expect(await screen.findByText(/Page 2 Scan/)).toBeInTheDocument();
-  const pageImg = screen.getByAltText("Page 2 with highlighted citation");
+  const pageImg = await screen.findByAltText("Page 2 with highlighted citation");
   expect(pageImg).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: /Fullscreen/ })).toBeInTheDocument();
+  expect(screen.getAllByRole("link", { name: /Open.*in a new tab/i }).length).toBeGreaterThan(0);
   fireEvent.click(pageImg);
   expect(
     await screen.findByRole("dialog", { name: "Enlarged diagram" }),
