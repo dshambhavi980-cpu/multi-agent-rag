@@ -57,7 +57,7 @@ function friendlyError(error: unknown): string {
   return "The answer stream was interrupted. Your conversation is still saved.";
 }
 
-function normalizeMarkdownContent(raw: string): string {
+export function normalizeMarkdownContent(raw: string): string {
   const healed = raw.replace(
     /(?:^|\s|\n)(!?\[([^\]]*)\]|[a-zA-Z0-9_\-\s]+\])\((https?:\/\/[^\s\)]+\/document-assets\/[^\s\)]+)\)/g,
     (_match, bracketGroup: string, altFromBracket: string | undefined, url: string) => {
@@ -107,7 +107,7 @@ function AnswerContent({
                   alt={alt ?? "Architecture diagram"}
                   className="chat-embedded-image"
                   loading="lazy"
-                  onClick={() => onImageClick?.({ src, alt: alt ?? undefined })}
+                  onClick={() => onImageClick?.(alt ? { src, alt } : { src })}
                 />
                 {alt ? <span className="chat-figure-caption">{alt}</span> : null}
               </span>
