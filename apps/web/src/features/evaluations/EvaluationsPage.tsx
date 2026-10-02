@@ -3,10 +3,8 @@ import {
   BarChart3,
   CheckCircle2,
   CircleAlert,
-  FlaskConical,
   Play,
   RefreshCw,
-  ShieldCheck,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -49,15 +47,6 @@ type Evaluation = {
   results: EvaluationResult[];
 };
 type EvaluationPageResult = { items: Evaluation[]; next_cursor: string | null };
-type SuiteSummary = {
-  suite: string;
-  version: number;
-  reviewed_by: string;
-  reviewed_at: string;
-  case_count: number;
-  categories: Record<string, number>;
-  thresholds: Record<string, number>;
-};
 
 const variants: Array<{ id: Variant; label: string; cost: string }> = [
   { id: "keyword_only", label: "Keyword", cost: "No model generation" },
@@ -87,12 +76,6 @@ export function EvaluationsPage() {
     Authorization: `Bearer ${session?.access_token ?? ""}`,
     "X-Workspace-ID": workspaceId ?? "",
   };
-  const suite = useQuery({
-    queryKey: ["evaluation-suite", workspaceId],
-    enabled: Boolean(session && workspaceId),
-    retry: false,
-    queryFn: () => requestJson<SuiteSummary>("/v1/evaluations/suite", { headers }),
-  });
   const evaluations = useQuery({
     queryKey: ["evaluations", workspaceId],
     enabled: Boolean(session && workspaceId),
@@ -155,20 +138,6 @@ export function EvaluationsPage() {
           <RefreshCw size={18} />
         </button>
       </div>
-
-      {suite.data?.case_count ? (
-        <div className="evaluation-suite-band">
-          <FlaskConical size={19} />
-          <div>
-            <strong>{suite.data.suite}</strong>
-            <p>
-              {suite.data.case_count} reviewed cases · version {suite.data.version} ·
-              citation gate {percent(suite.data.thresholds.citation_precision)}
-            </p>
-          </div>
-          <span><ShieldCheck size={15} /> Reviewed</span>
-        </div>
-      ) : null}
 
       <form
         className="evaluation-launcher"
