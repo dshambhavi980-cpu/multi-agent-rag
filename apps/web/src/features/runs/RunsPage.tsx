@@ -253,7 +253,6 @@ export function RunsPage() {
                   setSelectedId(run.id);
                 }}
               >
-                <span className={`run-status-dot run-${run.status}`} />
                 <span>
                   <strong>{run.question}</strong>
                   <small>{run.mode} · {run.status.replace("_", " ")}</small>

@@ -1228,8 +1228,9 @@ select:focus-visible {
 
 .conversation-list button[aria-current="true"],
 .run-list-active {
-  background: #eaf5f2;
-  box-shadow: inset 3px 0 #087f70;
+  background: #f4f4f5;
+  box-shadow: none;
+  border-radius: 6px;
 }
 
 .conversation-list button span {
@@ -2009,10 +2010,16 @@ html.dark .agent-thinking-wrapper {
 }
 
 .run-list-item {
-  display: grid;
-  min-height: 92px;
-  grid-template-columns: 10px minmax(0, 1fr);
-  justify-content: initial;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  min-height: 84px;
+  gap: 4px;
+}
+
+.run-list-item > span {
+  width: 100%;
 }
 
 .run-list-item strong,
@@ -2038,7 +2045,7 @@ html.dark .agent-thinking-wrapper {
 }
 
 .run-list-item time {
-  grid-column: 2;
+  grid-column: auto;
 }
 
 .run-status-dot {
@@ -2552,8 +2559,9 @@ label:has(input:focus-visible) .shadcn-checkbox {
 }
 
 .evaluation-row-active {
-  background: #eef7f5;
-  border-left-color: #087f70;
+  background: #f4f4f5;
+  border-left-color: transparent;
+  border-radius: 6px;
 }
 
 .evaluation-detail {
@@ -2981,22 +2989,28 @@ label:has(input:focus-visible) .shadcn-checkbox {
 }
 
 .approval-list-item {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
   width: 100%;
-  min-height: 94px;
-  grid-template-columns: 10px minmax(0, 1fr);
-  gap: 11px;
+  min-height: 84px;
+  gap: 4px;
   border: 0;
   border-bottom: 1px solid #e2e6ec;
   background: transparent;
-  padding: 16px;
+  padding: 14px 16px;
   color: #263247;
   text-align: left;
   cursor: pointer;
 }
 
+.approval-list-item > span {
+  width: 100%;
+}
+
 .approval-list-item time {
-  grid-column: 2;
+  grid-column: auto;
   color: #7a8495;
   font-size: 12px;
 }
@@ -3018,8 +3032,9 @@ label:has(input:focus-visible) .shadcn-checkbox {
 }
 
 .approval-list-item-active {
-  background: #eaf5f2;
-  box-shadow: inset 3px 0 #087f70;
+  background: #f4f4f5;
+  box-shadow: none;
+  border-radius: 6px;
 }
 
 .risk-dot {
@@ -3970,14 +3985,14 @@ html.dark .memory-empty {
 
 /* Agent Runs & Timeline View */
 html.dark .run-workspace {
-  border-color: #27272a;
+  border: 1px solid #27272a;
   border-radius: 8px;
-  background: #09090b;
+  background: #18181b;
 }
 
 html.dark .run-list {
-  border-right-color: #27272a;
-  background: #09090b;
+  border-right: 1px solid #27272a;
+  background: #131316;
 }
 
 html.dark .run-list-item {
@@ -3988,13 +4003,15 @@ html.dark .run-list-item {
 html.dark .run-list-item:hover {
   background: #18181b;
   color: #fafafa;
+  border-radius: 6px;
 }
 
 html.dark .run-list-active {
-  border-left: 2px solid #fafafa;
-  background: #18181b;
+  border-left: none;
+  background: #27272a;
   box-shadow: none;
   color: #fafafa;
+  border-radius: 6px;
 }
 
 html.dark .run-list-item strong {
@@ -4007,7 +4024,7 @@ html.dark .run-list-item time {
 }
 
 html.dark .run-detail {
-  background: #09090b;
+  background: #18181b;
 }
 
 html.dark .run-summary {
@@ -4065,9 +4082,9 @@ html.dark .trace-facts dd {
 }
 
 html.dark .trace-evidence article {
-  border-left: 2px solid #3f3f46;
+  border: 1px solid #27272a;
   border-radius: 4px;
-  background: #18181b;
+  background: #141417;
 }
 
 html.dark .trace-evidence article strong {
@@ -4168,13 +4185,21 @@ html.dark .conversation-list button {
 html.dark .conversation-list button:hover {
   background: #18181b;
   color: #fafafa;
+  border-radius: 6px;
 }
 
 html.dark .conversation-list button[aria-current="true"] {
-  border-left: 2px solid #fafafa;
-  background: #18181b;
+  border-left: none;
+  background: #27272a;
   box-shadow: none;
   color: #fafafa;
+  border-radius: 6px;
+}
+
+html.dark .chat-workspace {
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 html.dark .chat-thread {
@@ -4388,14 +4413,14 @@ html.dark .source-state-error {
 
 /* Approvals View */
 html.dark .approval-workspace {
-  border-color: #27272a;
+  border: 1px solid #27272a;
   border-radius: 8px;
-  background: #09090b;
+  background: #18181b;
 }
 
 html.dark .approval-list {
-  border-right-color: #27272a;
-  background: #09090b;
+  border-right: 1px solid #27272a;
+  background: #131316;
 }
 
 html.dark .approval-list-item {
@@ -4406,13 +4431,15 @@ html.dark .approval-list-item {
 html.dark .approval-list-item:hover {
   background: #18181b;
   color: #fafafa;
+  border-radius: 6px;
 }
 
 html.dark .approval-list-item-active {
-  border-left: 2px solid #fafafa;
-  background: #18181b;
+  border-left: none;
+  background: #27272a;
   box-shadow: none;
   color: #fafafa;
+  border-radius: 6px;
 }
 
 html.dark .approval-list-item strong {
@@ -4425,7 +4452,7 @@ html.dark .approval-list-item time {
 }
 
 html.dark .approval-detail {
-  background: #09090b;
+  background: #18181b;
 }
 
 html.dark .approval-detail-heading {
@@ -4477,9 +4504,9 @@ html.dark .approval-audit {
 
 /* Evaluations View */
 html.dark .evaluation-launcher {
-  border-color: #27272a;
+  border: 1px solid #27272a;
   border-radius: 8px;
-  background: #09090b;
+  background: #18181b;
 }
 
 html.dark .evaluation-launcher h2 {
@@ -4494,9 +4521,9 @@ html.dark .evaluation-suite-band {
 
 html.dark .evaluation-variants label,
 html.dark .evaluation-variant-card {
-  border-color: #27272a;
+  border: 1px solid #27272a;
   border-radius: 8px;
-  background: #09090b;
+  background: #141417;
 }
 
 html.dark .evaluation-variants label:hover,
@@ -4548,14 +4575,14 @@ html.dark .evaluation-case-count input {
 }
 
 html.dark .evaluation-workspace {
-  border-color: #27272a;
+  border: 1px solid #27272a;
   border-radius: 8px;
-  background: #09090b;
+  background: #18181b;
 }
 
 html.dark .evaluation-workspace .evaluation-grid {
-  border-right-color: #27272a;
-  background: #09090b;
+  border-right: 1px solid #27272a;
+  background: #131316;
 }
 
 html.dark .evaluation-row {
@@ -4566,16 +4593,18 @@ html.dark .evaluation-row {
 html.dark .evaluation-row:hover {
   background: #18181b;
   color: #fafafa;
+  border-radius: 6px;
 }
 
 html.dark .evaluation-row-active {
-  border-left: 2px solid #fafafa;
-  background: #18181b;
+  border-left: none;
+  background: #27272a;
   color: #fafafa;
+  border-radius: 6px;
 }
 
 html.dark .evaluation-detail {
-  background: #09090b;
+  background: #18181b;
 }
 
 html.dark .evaluation-detail-heading h2 {
@@ -4585,7 +4614,7 @@ html.dark .evaluation-detail-heading h2 {
 html.dark .evaluation-metrics div {
   border: 1px solid #27272a;
   border-radius: 6px;
-  background: #09090b;
+  background: #141417;
 }
 
 html.dark .evaluation-metrics strong {
@@ -4611,9 +4640,9 @@ html.dark .evaluation-results time {
 
 /* Settings View */
 html.dark .settings-section {
-  border-color: #27272a;
+  border: 1px solid #27272a;
   border-radius: 12px;
-  background: #09090b;
+  background: #18181b;
   box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.4);
 }
 
@@ -4738,7 +4767,17 @@ html.dark select:focus-visible {
   outline: 2px solid rgb(255 255 255 / 0.18);
 }
 
-/* PromptBar Textarea Reset - completely removes the black strip inside PromptBar */
+/* PromptBar Container & Textarea Reset - completely removes background layers behind and inside PromptBar */
+.docpilot-prompt-bar-wrap {
+  background: transparent !important;
+  background-color: transparent !important;
+  border: 0 !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 html.dark [data-prompt-bar] textarea,
 [data-prompt-bar] textarea,
 .docpilot-prompt-bar-wrap textarea {

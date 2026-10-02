@@ -33,7 +33,6 @@ import {
 } from "../../api/client";
 import { SelectMenu } from "../../components/SelectMenu";
 import { SourceMenu } from "../../components/SourceMenu";
-import { Thinking } from "../../components/Thinking";
 import { ThoughtLine } from "../../components/ThoughtLine";
 import PromptBar, {
   type PromptBarSendDetail,
@@ -284,10 +283,7 @@ export function ChatPage() {
     setStreamCitations([]);
     setPendingQuestion(content);
     setRunState("Starting");
-    setAgentSteps([
-      "Query Analyzer: Decomposing request and extracting intents",
-      "Router Agent: Deploying subagents for document search",
-    ]);
+    setAgentSteps([]);
     setQuestion("");
     try {
       let conversationId = activeId;
@@ -570,40 +566,29 @@ export function ChatPage() {
               <article className="message message-assistant message-streaming">
                 <span className="message-role">
                   DocPilot
-                  {runState && !["accepted", "starting"].includes(runState.toLowerCase())
+                  {mode !== "simple" && runState && !["accepted", "starting"].includes(runState.toLowerCase())
                     ? ` - ${runState}`
                     : ""}
                 </span>
-                <div className="agent-thinking-wrapper py-2">
-                  <div className="flex items-center gap-2 mb-2 text-zinc-300">
-                    <Thinking />
+                {mode !== "simple" ? (
+                  <div className="agent-thinking-wrapper py-2">
+                    <ThoughtLine
+                      working={sending && !streamed}
+                      steps={agentSteps}
+                      label="Coordinating subagents…"
+                      doneLabel="Thought for"
+                      glyph="sparkle"
+                      fontSize={13}
+                      breathPeriod={1.6}
+                      breathDepth={0.45}
+                      settleDuration={350}
+                      settleBlur={2}
+                      collapsible
+                      collapseOnSettle={Boolean(streamed)}
+                      showTimer
+                    />
                   </div>
-                  <ThoughtLine
-                    working={sending && !streamed}
-                    steps={
-                      agentSteps.length
-                        ? agentSteps
-                        : [
-                            "Query Analyzer: Decomposing request and extracting intents",
-                            "Router Agent: Deploying subagents for document search",
-                            "Retrieval Agent: Slicing document pages and fetching vector matches",
-                            "Citation Verifier: Grounding claims with original PDF coordinates",
-                            "Synthesis Agent: Generating multimodal response",
-                          ]
-                    }
-                    label="Coordinating subagents…"
-                    doneLabel="Thought for"
-                    glyph="sparkle"
-                    fontSize={13}
-                    breathPeriod={1.6}
-                    breathDepth={0.45}
-                    settleDuration={350}
-                    settleBlur={2}
-                    collapsible
-                    collapseOnSettle={Boolean(streamed)}
-                    showTimer
-                  />
-                </div>
+                ) : null}
                 {streamed ? (
                   <AnswerContent
                     content={streamed}
@@ -631,7 +616,7 @@ export function ChatPage() {
             ) : null}
           </div>
 
-          <div className="docpilot-prompt-bar-wrap w-full flex justify-center py-2">
+          <div className="docpilot-prompt-bar-wrap w-full flex justify-center py-2 bg-transparent border-0 shadow-none">
             <PromptBar
               placeholder={
                 awaitingReview

@@ -164,7 +164,6 @@ export function ApprovalsPage() {
                   setEditedOutput(item.proposed_output ?? "");
                 }}
               >
-                <span className={`risk-dot risk-${item.risk_level}`} aria-hidden="true" />
                 <span>
                   <strong>{item.risk_level} risk</strong>
                   <small>{item.reasons[0]}</small>
