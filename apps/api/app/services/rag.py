@@ -98,7 +98,18 @@ class ValidatedAnswer:
 def _split_complete_segments(buffer: str, *, final: bool = False) -> tuple[list[str], str]:
     segments: list[str] = []
     consumed = 0
+    image_spans = [
+        (m.start(), m.end())
+        for m in re.finditer(r"!\[.*?\](?:\(.*?\))?", buffer, flags=re.DOTALL)
+    ]
+    unclosed_image = re.search(r"!\[(?!.*\]\().*", buffer, flags=re.DOTALL)
+    unclosed_start = unclosed_image.start() if unclosed_image else None
+
     for match in SEGMENT_BOUNDARY.finditer(buffer):
+        if any(start <= match.start() < end for start, end in image_spans):
+            continue
+        if unclosed_start is not None and match.start() >= unclosed_start and not final:
+            continue
         segment = buffer[consumed : match.end()].strip()
         consumed = match.end()
         if segment:

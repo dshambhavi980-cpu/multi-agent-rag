@@ -264,3 +264,41 @@ test("renders embedded diagram images and opens lightbox preview", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Close image preview" }));
   expect(screen.queryByRole("dialog", { name: "Enlarged diagram" })).not.toBeInTheDocument();
 });
+
+test("auto-heals broken markdown image tags from document-assets", async () => {
+  mocks.requestJson.mockImplementation((path: string) => {
+    if (path === "/v1/conversations") {
+      return Promise.resolve({ items: [conversation] });
+    }
+    if (path === "/v1/conversations/conversation-1") {
+      return Promise.resolve({
+        conversation,
+        messages: [
+          {
+            id: "msg-healed",
+            conversation_id: "conversation-1",
+            role: "assistant",
+            content:
+              "In this](https://example.supabase.co/storage/v1/object/public/document-assets/alex/fig_p56_1.jpeg) [C1]",
+            citations: [citation],
+            confidence: 0.95,
+            created_at: "2026-07-29T00:00:00Z",
+          },
+        ],
+      });
+    }
+    if (path === "/v1/documents") {
+      return Promise.resolve({ items: [] });
+    }
+    return Promise.resolve({});
+  });
+
+  renderWithProviders(<ChatPage />);
+  const img = await screen.findByAltText("Architecture Diagram");
+  expect(img).toBeInTheDocument();
+  expect(img).toHaveAttribute(
+    "src",
+    "https://example.supabase.co/storage/v1/object/public/document-assets/alex/fig_p56_1.jpeg",
+  );
+});
+

@@ -165,3 +165,36 @@ async def test_storage_creates_signed_download_url() -> None:
 
     assert url == "https://example.supabase.co/storage/v1/object/sign/signed-token"
     await storage.aclose()
+
+
+async def test_storage_upload_public_success_and_missing_key() -> None:
+    no_key = SupabaseStorageClient(
+        supabase_url="https://example.supabase.co",
+        publishable_key="publishable",
+        service_key=None,
+        timeout_seconds=3,
+    )
+    with pytest.raises(ApplicationError) as err:
+        await no_key.upload_public("path/img.png", b"data")
+    assert err.value.code == "SERVICE_ROLE_NOT_CONFIGURED"
+    await no_key.aclose()
+
+    storage = SupabaseStorageClient(
+        supabase_url="https://example.supabase.co",
+        publishable_key="publishable",
+        service_key="service-secret",
+        timeout_seconds=3,
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path.endswith("/storage/v1/object/document-assets/path/img.png")
+        assert request.headers["authorization"] == "Bearer service-secret"
+        assert request.headers["x-upsert"] == "true"
+        return httpx.Response(200, json={"Key": "document-assets/path/img.png"})
+
+    await storage._client.aclose()
+    storage._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    pub_url = await storage.upload_public("path/img.png", b"data", content_type="image/png")
+    assert pub_url == "https://example.supabase.co/storage/v1/object/public/document-assets/path/img.png"
+    await storage.aclose()
+

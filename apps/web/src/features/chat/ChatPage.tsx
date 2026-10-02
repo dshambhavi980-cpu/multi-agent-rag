@@ -57,6 +57,26 @@ function friendlyError(error: unknown): string {
   return "The answer stream was interrupted. Your conversation is still saved.";
 }
 
+function normalizeMarkdownContent(raw: string): string {
+  const healed = raw.replace(
+    /(?:^|\s|\n)(!?\[([^\]]*)\]|[a-zA-Z0-9_\-\s]+\])\((https?:\/\/[^\s\)]+\/document-assets\/[^\s\)]+)\)/g,
+    (_match, bracketGroup: string, altFromBracket: string | undefined, url: string) => {
+      let alt = (altFromBracket !== undefined ? altFromBracket : bracketGroup.replace(/\]$/, "")).trim();
+      if (!alt || alt.toLowerCase().startsWith("in this")) {
+        alt = "Architecture Diagram";
+      }
+      return `\n\n![${alt}](${url})\n\n`;
+    },
+  );
+
+  return healed
+    .replace(/\s+\*\s+(?=\*\*)/g, "\n* ")
+    .replace(
+      /\[(C[1-9][0-9]*)\]/g,
+      (_match, citationId: string) => `[${citationId}](citation:${citationId})`,
+    );
+}
+
 function AnswerContent({
   content,
   citations,
@@ -69,12 +89,7 @@ function AnswerContent({
   onImageClick?: (image: { src: string; alt?: string }) => void;
 }) {
   const citationMap = new Map(citations.map((citation) => [citation.citation_id, citation]));
-  const markdown = content
-    .replace(/\s+\*\s+(?=\*\*)/g, "\n* ")
-    .replace(
-      /\[(C[1-9][0-9]*)\]/g,
-      (_match, citationId: string) => `[${citationId}](citation:${citationId})`,
-    );
+  const markdown = normalizeMarkdownContent(content);
   return (
     <div className="message-markdown">
       <ReactMarkdown

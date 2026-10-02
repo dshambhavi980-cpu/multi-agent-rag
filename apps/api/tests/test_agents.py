@@ -242,3 +242,19 @@ async def test_reviewer_rejects_uncited_or_unknown_citations(monkeypatch: Any) -
     assert result.answer_status == "insufficient_evidence"
     assert result.confidence == 0
     assert result.citation_ids == []
+
+
+def test_orchestrator_validation_handles_embedded_diagrams() -> None:
+    instance = orchestrator(Admin(), Retrieval(response()), Generation())
+    draft = (
+        "Here is the token bucket architecture [C1].\n\n"
+        "![Figure 4-6 demonstrates token consumption, refill, and rate limiting logic work. In this](https://example.com/fig.jpeg)\n\n"
+        "Tokens refill at fixed rate [C1]."
+    )
+    valid, used, total_segments = instance._validate(draft, allowed={"C1"})
+    assert "C1" in used
+    assert any(seg.startswith("![") for seg in valid)
+    assert total_segments == 3
+    assert len(valid) == 3
+
+

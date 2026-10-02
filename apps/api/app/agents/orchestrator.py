@@ -417,7 +417,22 @@ class AgentOrchestrator:
     def _validate(self, draft: str, allowed: set[str]) -> tuple[list[str], set[str], int]:
         if draft.strip() == "INSUFFICIENT_EVIDENCE":
             return [], set(), 0
-        segments = [item.strip() for item in SEGMENT_BOUNDARY.split(draft) if item.strip()]
+        image_spans = [
+            (m.start(), m.end())
+            for m in re.finditer(r"!\[.*?\](?:\(.*?\))?", draft, flags=re.DOTALL)
+        ]
+        segments: list[str] = []
+        consumed = 0
+        for match in SEGMENT_BOUNDARY.finditer(draft):
+            if any(start <= match.start() < end for start, end in image_spans):
+                continue
+            seg = draft[consumed : match.end()].strip()
+            consumed = match.end()
+            if seg:
+                segments.append(seg)
+        trailing = draft[consumed:].strip()
+        if trailing:
+            segments.append(trailing)
         valid: list[str] = []
         used: set[str] = set()
         for segment in segments:

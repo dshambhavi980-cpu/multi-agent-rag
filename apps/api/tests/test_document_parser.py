@@ -86,3 +86,19 @@ def test_extracts_pdf_figures_with_captions() -> None:
     assert len(parsed.figures) == 1
     assert parsed.figures[0].page_number == 1
     assert "Figure 1-1" in parsed.figures[0].caption
+
+
+def test_extracts_pdf_figures_fallback_heading() -> None:
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "System Overview.\nDetailed description here.")
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 300, 200), 1)
+    pix.clear_with(255)
+    page.insert_image(fitz.Rect(72, 100, 372, 300), pixmap=pix)
+    payload = document.tobytes()
+    document.close()
+
+    parsed = parse_document(payload, "application/pdf")
+    assert len(parsed.figures) == 1
+    assert "System Overview (Page 1)" in parsed.figures[0].caption
+
