@@ -1351,6 +1351,133 @@ select:focus-visible {
   text-align: left;
 }
 
+.chat-figure {
+  margin: 14px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  padding: 10px;
+  overflow: hidden;
+}
+
+.chat-embedded-image {
+  max-width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  border-radius: 8px;
+  cursor: zoom-in;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  background: #ffffff;
+}
+
+.chat-embedded-image:hover {
+  transform: scale(1.015);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.chat-figure-caption {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  color: #64748b;
+  font-weight: 500;
+  text-align: center;
+}
+
+.chat-lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.chat-lightbox-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.chat-lightbox-content img {
+  max-width: 85vw;
+  max-height: 78vh;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.chat-lightbox-caption {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+}
+
+.chat-lightbox-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.08);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #334155;
+  transition: background 0.15s ease;
+}
+
+.chat-lightbox-close:hover {
+  background: rgba(0, 0, 0, 0.18);
+}
+
+html.dark .chat-figure {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .chat-embedded-image {
+  background: #1e293b;
+}
+
+html.dark .chat-figure-caption {
+  color: #94a3b8;
+}
+
+html.dark .chat-lightbox-content {
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+html.dark .chat-lightbox-caption {
+  color: #f1f5f9;
+}
+
+html.dark .chat-lightbox-close {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+html.dark .chat-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
 .message small {
   display: block;
   margin-top: 7px;

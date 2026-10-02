@@ -10,7 +10,12 @@ from app.infrastructure.supabase.admin import SupabaseAdminClient
 from app.infrastructure.supabase.storage import SupabaseStorageClient
 from app.models.documents import ContentType
 from app.services.chunking import ChunkingConfig, ChunkStrategy, chunk_pages
-from app.services.document_parser import DocumentParseError, ParsedPage, parse_document
+from app.services.document_parser import (
+    DocumentParseError,
+    ParsedChunk,
+    ParsedPage,
+    parse_document,
+)
 
 
 @dataclass(frozen=True)
@@ -168,6 +173,36 @@ class IngestionWorker:
                 raise DocumentParseError(
                     "NO_INDEXABLE_TEXT", "The document contains no indexable text."
                 )
+            if not is_reindex and hasattr(parsed, "figures") and parsed.figures:
+                workspace_id = str(
+                    document.get("workspace_id") or payload.get("workspace_id", "default")
+                )
+                doc_id = str(payload.get("document_id") or document.get("id", "doc"))
+                for fig in parsed.figures:
+                    try:
+                        asset_path = f"{workspace_id}/{doc_id}/{fig.figure_id}.{fig.image_ext}"
+                        public_url = await self.storage.upload_public(
+                            asset_path, fig.image_bytes, f"image/{fig.image_ext}"
+                        )
+                        fig_content = (
+                            f"### Diagram: {fig.caption}\n\n"
+                            f"![{fig.caption}]({public_url})\n\n"
+                            f"**Figure Context**: {fig.caption}. {fig.context_snippet}"
+                        )
+                        chunks.append(
+                            ParsedChunk(
+                                chunk_index=len(chunks),
+                                content=fig_content,
+                                page_start=fig.page_number,
+                                page_end=fig.page_number,
+                                section_heading=fig.caption,
+                                char_start=0,
+                                char_end=len(fig_content),
+                                token_count=max(1, len(fig_content.split())),
+                            )
+                        )
+                    except Exception as upload_err:
+                        get_logger().warning("figure_upload_skipped", error=str(upload_err))
             await self._progress(job_id, "embedding", 0.35)
             chunk_records = [chunk.__dict__.copy() for chunk in chunks]
             title = cast(str | None, document.get("title")) or str(document["filename"])

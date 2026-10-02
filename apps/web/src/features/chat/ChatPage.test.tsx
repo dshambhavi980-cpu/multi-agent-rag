@@ -227,3 +227,40 @@ test.each([
   fireEvent.click(screen.getByRole("button", { name: "Send message" }));
   expect(await screen.findByText(expected)).toBeInTheDocument();
 });
+
+test("renders embedded diagram images and opens lightbox preview", async () => {
+  mocks.requestJson.mockImplementation((path: string) => {
+    if (path === "/v1/conversations") {
+      return Promise.resolve({ items: [conversation] });
+    }
+    if (path === "/v1/conversations/conversation-1") {
+      return Promise.resolve({
+        conversation,
+        messages: [
+          {
+            id: "msg-diagram",
+            conversation_id: "conversation-1",
+            role: "assistant",
+            content:
+              "Here is the diagram:\n\n![Token Bucket Architecture](https://example.com/token_bucket.png)\n\nIt works via refill [C1].",
+            citations: [citation],
+            confidence: 0.95,
+            created_at: "2026-07-29T00:00:00Z",
+          },
+        ],
+      });
+    }
+    if (path === "/v1/documents") {
+      return Promise.resolve({ items: [] });
+    }
+    return Promise.resolve({});
+  });
+
+  renderWithProviders(<ChatPage />);
+  const img = await screen.findByAltText("Token Bucket Architecture");
+  expect(img).toBeInTheDocument();
+  fireEvent.click(img);
+  expect(screen.getByRole("dialog", { name: "Enlarged diagram" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Close image preview" }));
+  expect(screen.queryByRole("dialog", { name: "Enlarged diagram" })).not.toBeInTheDocument();
+});

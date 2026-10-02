@@ -137,6 +137,9 @@ def _validate_segments(
             valid.append(segment)
             used.update(citations)
             accepted += 1
+        elif segment.startswith("![") and "](" in segment and used:
+            valid.append(segment)
+            accepted += 1
     return valid, used, reviewed, accepted, conflict
 
 
