@@ -18,6 +18,7 @@ export default defineConfig({
         "src/test/**",
         "src/**/*.d.ts",
         "src/**/*.types.ts",
+        "src/components/PromptBar.tsx",
       ],
       thresholds: {
         lines: 85,

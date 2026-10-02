@@ -1,11 +1,13 @@
 import hashlib
+import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Any, cast
 from uuid import UUID, uuid4
 
+import fitz
 from fastapi import APIRouter, Body, Depends, Header, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 
 from app.api.dependencies import AuthContext, get_auth_context, require_workspace_access
 from app.api.errors import ApplicationError
@@ -307,6 +309,131 @@ async def open_document_source(
     if page is not None and document.content_type == "application/pdf":
         signed_url = f"{signed_url}#page={page}"
     return RedirectResponse(signed_url, status_code=307)
+
+
+def _highlight_quote_on_page(page: Any, quote: str) -> None:
+    cleaned = re.sub(r"[*_#`~]", "", quote)
+    cleaned = " ".join(cleaned.split())
+    if not cleaned:
+        return
+
+    # First attempt: direct search for full cleaned quote
+    rects = page.search_for(cleaned)
+    if rects:
+        for r in rects:
+            annot = page.add_highlight_annot(r)
+            annot.set_colors(stroke=(1.0, 0.85, 0.2))
+            annot.update()
+        return
+
+    # Second attempt: search for sentences or phrases
+    sentences = [s.strip() for s in re.split(r"[.!?;\n]+", cleaned) if len(s.strip()) >= 12]
+    found = False
+    for s in sentences:
+        s_rects = page.search_for(s)
+        if s_rects:
+            for r in s_rects:
+                annot = page.add_highlight_annot(r)
+                annot.set_colors(stroke=(1.0, 0.85, 0.2))
+                annot.update()
+            found = True
+        else:
+            words = s.split()
+            if len(words) >= 4:
+                for i in range(0, len(words) - 3, 3):
+                    phrase = " ".join(words[i : i + 5])
+                    p_rects = page.search_for(phrase)
+                    if p_rects:
+                        for r in p_rects:
+                            annot = page.add_highlight_annot(r)
+                            annot.set_colors(stroke=(1.0, 0.85, 0.2))
+                            annot.update()
+                        found = True
+    if found:
+        return
+
+    # Third fallback: search initial word chunks
+    words = cleaned.split()
+    if len(words) >= 3:
+        for i in range(0, min(len(words) - 2, 15), 3):
+            phrase = " ".join(words[i : i + 4])
+            p_rects = page.search_for(phrase)
+            if p_rects:
+                for r in p_rects:
+                    annot = page.add_highlight_annot(r)
+                    annot.set_colors(stroke=(1.0, 0.85, 0.2))
+                    annot.update()
+
+
+@router.get(
+    "/documents/{document_id}/pages/{page}/preview",
+    operation_id="getDocumentPagePreview",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"image/png": {}},
+            "description": "Rendered PNG preview of the specified page with highlighted quote",
+        }
+    },
+)
+async def get_document_page_preview(
+    document_id: UUID,
+    page: int,
+    request: Request,
+    workspace_id: Annotated[UUID, Header(alias="X-Workspace-ID")],
+    auth: Annotated[AuthContext, Depends(get_auth_context)],
+    quote: Annotated[str | None, Query()] = None,
+) -> Response:
+    await require_workspace_access(workspace_id, request, auth)
+    data = cast(SupabaseDataClient, request.app.state.supabase_data)
+    document = await _get_workspace_document(
+        document_id=document_id,
+        workspace_id=workspace_id,
+        access_token=auth.access_token,
+        data=data,
+    )
+    if document.content_type != "application/pdf":
+        raise ApplicationError(
+            "UNSUPPORTED_DOCUMENT_TYPE",
+            "Preview unsupported",
+            "Page previews are currently only supported for PDF documents.",
+            status=400,
+        )
+    storage = cast(SupabaseStorageClient, request.app.state.supabase_storage)
+    pdf_bytes = await storage.download(document.object_path, auth.access_token)
+
+    try:
+        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    except Exception as exc:
+        raise ApplicationError(
+            "MALFORMED_PDF",
+            "Malformed PDF",
+            "The document PDF could not be opened.",
+            status=422,
+        ) from exc
+
+    if page < 1 or page > doc.page_count:
+        raise ApplicationError(
+            "PAGE_OUT_OF_RANGE",
+            "Page out of range",
+            f"Document only has {doc.page_count} pages.",
+            status=404,
+        )
+
+    fitz_page = doc[page - 1]
+    if quote:
+        _highlight_quote_on_page(fitz_page, quote)
+
+    pix = fitz_page.get_pixmap(dpi=150)
+    png_bytes = pix.tobytes("png")
+    return Response(
+        content=png_bytes,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "private, max-age=3600",
+            "Content-Disposition": f'inline; filename="page-{page}.png"',
+        },
+    )
 
 
 @router.get(

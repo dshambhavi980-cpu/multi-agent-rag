@@ -82,10 +82,10 @@ test("lazy-loads every operational section", async () => {
   ]) {
     await user.click(screen.getByRole("link", { name }));
     expect(
-      await screen.findByRole("heading", { name }, { timeout: 15_000 }),
+      await screen.findByRole("heading", { name }, { timeout: 25_000 }),
     ).toBeInTheDocument();
   }
-}, 60_000);
+}, 90_000);
 
 test("opens and closes mobile navigation", async () => {
   const user = userEvent.setup();

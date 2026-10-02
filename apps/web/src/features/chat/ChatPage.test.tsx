@@ -260,9 +260,15 @@ test("renders embedded diagram images and opens lightbox preview", async () => {
   const img = await screen.findByAltText("Token Bucket Architecture");
   expect(img).toBeInTheDocument();
   fireEvent.click(img);
-  expect(screen.getByRole("dialog", { name: "Enlarged diagram" })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Close image preview" }));
+  const overlay = screen.getByRole("dialog", { name: "Enlarged diagram" });
+  expect(overlay).toBeInTheDocument();
+  fireEvent.click(overlay);
   expect(screen.queryByRole("dialog", { name: "Enlarged diagram" })).not.toBeInTheDocument();
+
+  const hiddenInput = screen.getByPlaceholderText("Ask a question about your documents");
+  fireEvent.change(hiddenInput, { target: { value: "Tell me about load balancers" } });
+  fireEvent.keyDown(hiddenInput, { key: "Enter", shiftKey: true });
+  fireEvent.keyDown(hiddenInput, { key: "Enter", shiftKey: false });
 });
 
 test("auto-heals broken markdown image tags from document-assets", async () => {
@@ -300,5 +306,53 @@ test("auto-heals broken markdown image tags from document-assets", async () => {
     "src",
     "https://example.supabase.co/storage/v1/object/public/document-assets/alex/fig_p56_1.jpeg",
   );
+});
+
+test("sends message via prompt bar with selected mode", async () => {
+  renderWithProviders(<ChatPage />);
+  await screen.findAllByText("Emergency access");
+
+  const promptInput = screen.getByRole("textbox", { name: "Prompt" });
+  fireEvent.change(promptInput, { target: { value: "Tell me about distributed caching." } });
+
+  const sendBtn = screen.getByRole("button", { name: "Send" });
+  fireEvent.click(sendBtn);
+
+  await waitFor(() => {
+    expect(mocks.requestJson).toHaveBeenCalledWith(
+      expect.stringContaining("/messages"),
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+  });
+});
+
+test("supports dictation and sending with custom model detail", async () => {
+  renderWithProviders(<ChatPage />);
+  await screen.findAllByText("Emergency access");
+
+  const micBtn = screen.getByRole("button", { name: "Dictate" });
+  fireEvent.click(micBtn);
+
+  const promptInput = screen.getByRole("textbox", { name: "Prompt" });
+  fireEvent.change(promptInput, { target: { value: "Tell me about distributed caching." } });
+
+  const modelBtn = screen.getByRole("button", { name: "Choose model" });
+  fireEvent.click(modelBtn);
+  const agenticOption = screen.getByRole("option", { name: /Agentic RAG/ });
+  fireEvent.click(agenticOption);
+
+  const sendBtn = screen.getByRole("button", { name: "Send" });
+  fireEvent.click(sendBtn);
+
+  await waitFor(() => {
+    expect(mocks.requestJson).toHaveBeenCalledWith(
+      expect.stringContaining("/messages"),
+      expect.objectContaining({
+        method: "POST",
+      }),
+    );
+  });
 });
 

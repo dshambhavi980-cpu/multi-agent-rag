@@ -31,11 +31,17 @@ import {
 } from "../../api/client";
 import { SelectMenu } from "../../components/SelectMenu";
 import { SourceMenu } from "../../components/SourceMenu";
+import PromptBar, {
+  type PromptBarSendDetail,
+  type PromptBarSource,
+} from "../../components/PromptBar";
+import { File02Icon } from "@hugeicons/core-free-icons";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useAuth } from "../auth/auth-context";
 import type { DocumentPage } from "../documents/documents.types";
 import { useWorkspace } from "../workspaces/workspace-context";
 import { SourceViewer } from "./SourceViewer";
+import { normalizeMarkdownContent } from "./chat.utils";
 import type {
   Citation,
   Conversation,
@@ -57,25 +63,6 @@ function friendlyError(error: unknown): string {
   return "The answer stream was interrupted. Your conversation is still saved.";
 }
 
-export function normalizeMarkdownContent(raw: string): string {
-  const healed = raw.replace(
-    /(?:^|\s|\n)(!?\[([^\]]*)\]|[a-zA-Z0-9_\-\s]+\])\((https?:\/\/[^\s\)]+\/document-assets\/[^\s\)]+)\)/g,
-    (_match, bracketGroup: string, altFromBracket: string | undefined, url: string) => {
-      let alt = (altFromBracket !== undefined ? altFromBracket : bracketGroup.replace(/\]$/, "")).trim();
-      if (!alt || alt.toLowerCase().startsWith("in this")) {
-        alt = "Architecture Diagram";
-      }
-      return `\n\n![${alt}](${url})\n\n`;
-    },
-  );
-
-  return healed
-    .replace(/\s+\*\s+(?=\*\*)/g, "\n* ")
-    .replace(
-      /\[(C[1-9][0-9]*)\]/g,
-      (_match, citationId: string) => `[${citationId}](citation:${citationId})`,
-    );
-}
 
 function AnswerContent({
   content,
@@ -156,7 +143,12 @@ function TopbarPortal({
 
   useLayoutEffect(() => {
     if (!target && typeof document !== "undefined") {
-      setTarget(document.getElementById(targetId));
+      const el = document.getElementById(targetId);
+      if (el) {
+        queueMicrotask(() => {
+          setTarget(el);
+        });
+      }
     }
   }, [targetId, target]);
 
@@ -262,10 +254,15 @@ export function ChatPage() {
     }
   };
 
-  const send = async (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const content = question.trim();
+  const send = async (
+    event?: SyntheticEvent<HTMLFormElement>,
+    customText?: string,
+    detail?: PromptBarSendDetail,
+  ) => {
+    if (event) event.preventDefault();
+    const content = (customText ?? question).trim();
     if (!content || !session || !workspaceId || !online || sending || awaitingReview) return;
+    const activeMode = (detail?.model?.key as Mode | undefined) ?? mode;
     setSending(true);
     setError(null);
     setStreamed("");
@@ -292,7 +289,7 @@ export function ChatPage() {
           body: JSON.stringify({
             content,
             document_ids: selectedDocuments.length ? selectedDocuments : null,
-            force_mode: mode,
+            force_mode: activeMode,
           }),
         },
       );
@@ -314,6 +311,81 @@ export function ChatPage() {
       setSending(false);
     }
   };
+
+  interface SpeechRecognitionResultItem {
+    transcript?: string;
+  }
+  interface SpeechRecognitionResultList {
+    [index: number]: {
+      [index: number]: SpeechRecognitionResultItem | undefined;
+    } | undefined;
+  }
+  interface SpeechRecognitionEvent {
+    results?: SpeechRecognitionResultList;
+  }
+  interface SpeechRecognitionInstance {
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+    onresult: ((event: SpeechRecognitionEvent) => void) | null;
+    onerror: (() => void) | null;
+    onend: (() => void) | null;
+    start: () => void;
+  }
+  interface SpeechRecognitionConstructor {
+    new (): SpeechRecognitionInstance;
+  }
+
+  const handleDictate = (): Promise<string> => {
+    return new Promise((resolve) => {
+      const speechWindow = window as unknown as {
+        SpeechRecognition?: SpeechRecognitionConstructor;
+        webkitSpeechRecognition?: SpeechRecognitionConstructor;
+      };
+      const SpeechRec = speechWindow.SpeechRecognition ?? speechWindow.webkitSpeechRecognition;
+      if (!SpeechRec) {
+        alert("Voice dictation is supported in Chrome, Edge, and Safari.");
+        resolve("");
+        return;
+      }
+      try {
+        const rec = new SpeechRec();
+        rec.continuous = false;
+        rec.interimResults = false;
+        rec.lang = "en-US";
+        rec.onresult = (e: SpeechRecognitionEvent) => {
+          const t = e.results?.[0]?.[0]?.transcript ?? "";
+          resolve(t);
+        };
+        rec.onerror = () => {
+          resolve("");
+        };
+        rec.onend = () => {
+          resolve("");
+        };
+        rec.start();
+      } catch {
+        resolve("");
+      }
+    });
+  };
+
+  const promptSources = useMemo<PromptBarSource[]>(() => {
+    return [
+      {
+        key: "all",
+        name: "All Documents",
+        description: "Search across all indexed workspace documents",
+        icon: File02Icon as PromptBarSource["icon"],
+      },
+      ...readyDocuments.map((doc) => ({
+        key: doc.id,
+        name: doc.title ?? doc.filename,
+        description: `${doc.content_type} • Page search`,
+        icon: File02Icon as PromptBarSource["icon"],
+      })),
+    ];
+  }, [readyDocuments]);
 
   const messages: Message[] = useMemo(
     () => detail.data?.messages ?? [],
@@ -510,7 +582,45 @@ export function ChatPage() {
             ) : null}
           </div>
 
-          <form className="chat-composer" onSubmit={(event) => void send(event)}>
+          <div className="docpilot-prompt-bar-wrap w-full flex justify-center py-2">
+            <PromptBar
+              placeholder={
+                awaitingReview
+                  ? "Complete pending human review to continue"
+                  : "Ask anything about your documents..."
+              }
+              sources={promptSources}
+              commands={[
+                { key: "summarize", name: "/summarize", description: "Summarize this system design" },
+                { key: "compare", name: "/compare", description: "Compare architecture approaches" },
+                { key: "explain", name: "/explain", description: "Explain system components step by step" },
+              ]}
+              models={[
+                { key: "simple", name: "Fast RAG", tag: "Direct" },
+                { key: "agentic", name: "Agentic RAG", tag: "Multi-Agent" },
+                { key: "auto", name: "Auto", tag: "Best Path" },
+              ]}
+              defaultModel={mode}
+              efforts={[]}
+              busy={sending}
+              onSend={(text, detail) => {
+                if (detail.model?.key) {
+                  setMode(detail.model.key as Mode);
+                }
+                void send(undefined, text, detail);
+              }}
+              onDictate={handleDictate}
+              background="#18181b"
+              color="#f4f4f5"
+              menuBackground="#27272a"
+              sparkColor="#b39dff"
+              width={760}
+              radius={16}
+              className="w-full max-w-3xl"
+            />
+          </div>
+
+          <form className="chat-composer-hidden sr-only" onSubmit={(event) => void send(event)}>
             <div className="composer-input">
               <label className="sr-only" htmlFor="chat-question">Message DocPilot</label>
               <textarea
@@ -601,15 +711,24 @@ export function ChatPage() {
           className="chat-lightbox-overlay"
           role="dialog"
           aria-label="Enlarged diagram"
-          onClick={() => setLightbox(null)}
+          onClick={() => {
+            setLightbox(null);
+          }}
         >
-          <div className="chat-lightbox-content" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="chat-lightbox-content"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
             <img src={lightbox.src} alt={lightbox.alt ?? "Diagram"} />
             {lightbox.alt ? <p className="chat-lightbox-caption">{lightbox.alt}</p> : null}
             <button
               type="button"
               className="chat-lightbox-close"
-              onClick={() => setLightbox(null)}
+              onClick={() => {
+                setLightbox(null);
+              }}
               aria-label="Close image preview"
             >
               <X size={18} />
