@@ -196,12 +196,21 @@ export function ChatPage() {
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [runState, setRunState] = useState<string | null>(null);
   const [agentSteps, setAgentSteps] = useState<string[]>([]);
+  const agentStepsRef = useRef<string[]>([]);
+  const completedAssistantMessageIdRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<Citation | null>(null);
   const [lightbox, setLightbox] = useState<{ src: string; alt?: string } | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const awaitingReview = runState === "Awaiting human review";
+
+  const addAgentStep = (step: string) => {
+    if (!agentStepsRef.current.includes(step)) {
+      agentStepsRef.current = [...agentStepsRef.current, step];
+      setAgentSteps(agentStepsRef.current);
+    }
+  };
   const headers = {
     Authorization: `Bearer ${session?.access_token ?? ""}`,
     "X-Workspace-ID": workspaceId ?? "",
@@ -305,6 +314,7 @@ export function ChatPage() {
     setStreamCitations([]);
     setPendingQuestion(null);
     setRunState(null);
+    agentStepsRef.current = [];
     setAgentSteps([]);
     setError(null);
   };
@@ -313,25 +323,24 @@ export function ChatPage() {
     if (event.event_type === "answer.delta" && typeof event.delta === "string") {
       const delta = event.delta;
       fullStreamedRef.current += delta;
-      setAgentSteps((steps) => {
-        const step = "Synthesis Agent: Generating grounded answer";
-        return steps.includes(step) ? steps : [...steps, step];
-      });
+      addAgentStep("Synthesis Agent: Generating grounded answer");
     }
     if (event.event_type === "citations.available" && Array.isArray(event.citations)) {
       setStreamCitations(event.citations as Citation[]);
-      setAgentSteps((steps) => {
-        const step = "Citation Verifier: Grounding claims with verified passages";
-        return steps.includes(step) ? steps : [...steps, step];
-      });
+      addAgentStep("Citation Verifier: Grounding claims with verified passages");
     }
     if (event.event_type === "agent.step_started" && typeof event.node === "string") {
       setRunState(`Agent: ${event.node}`);
       const step = formatAgentStep(event.node);
-      setAgentSteps((steps) => (steps.includes(step) ? steps : [...steps, step]));
+      addAgentStep(step);
     }
     if (event.event_type === "run.awaiting_approval") setRunState("Awaiting human review");
-    if (event.event_type === "run.completed") setRunState("Completed");
+    if (event.event_type === "run.completed") {
+      setRunState("Completed");
+      if (typeof event.message_id === "string") {
+        completedAssistantMessageIdRef.current = event.message_id;
+      }
+    }
     if (event.event_type === "run.failed") {
       setRunState("Failed");
       if (typeof event.detail === "string") setError(event.detail);
@@ -355,6 +364,8 @@ export function ChatPage() {
     setStreamCitations([]);
     setPendingQuestion(content);
     setRunState("Starting");
+    agentStepsRef.current = [];
+    completedAssistantMessageIdRef.current = null;
     setAgentSteps([]);
     setQuestion("");
     try {
@@ -389,13 +400,19 @@ export function ChatPage() {
       }
       await new Promise((r) => setTimeout(r, 60));
 
-      if (activeMode !== "simple" && agentSteps.length > 0) {
+      if (activeMode !== "simple" && agentStepsRef.current.length > 0) {
+        const finalSteps = [...agentStepsRef.current];
+        const duration = lastThoughtDurationRef.current || 1.8;
         setThoughtsByMessageId((prev) => {
           const next = new Map(prev);
-          next.set(accepted.message_id, {
-            duration: lastThoughtDurationRef.current || 1.8,
-            steps: [...agentSteps],
-          });
+          const thoughtData = {
+            duration,
+            steps: finalSteps,
+          };
+          if (completedAssistantMessageIdRef.current) {
+            next.set(completedAssistantMessageIdRef.current, thoughtData);
+          }
+          next.set(accepted.message_id, thoughtData);
           return next;
         });
       }
@@ -567,21 +584,30 @@ export function ChatPage() {
               const thought = thoughtsByMessageId.get(message.id);
               return (
                 <article className={`message message-${message.role}`} key={message.id}>
-                  <span className="message-role">
-                    {message.role === "user" ? "You" : "DocPilot"}
-                  </span>
+                  {message.role === "user" ? (
+                    <span className="message-role">You</span>
+                  ) : null}
                   {message.role === "assistant" ? (
                     <>
-                      {thought && thought.steps.length > 0 ? (
+                      {mode !== "simple" ? (
                         <div className="agent-thinking-wrapper py-1">
                           <ThoughtLine
                             working={false}
-                            steps={thought.steps}
+                            steps={
+                              thought?.steps && thought.steps.length > 0
+                                ? thought.steps
+                                : message.citations && message.citations.length > 0
+                                ? [
+                                    "Synthesis Agent: Generating grounded answer",
+                                    `Citation Verifier: Grounded claims with ${message.citations.length} verified source passages`,
+                                  ]
+                                : ["Synthesis Agent: Generating grounded answer"]
+                            }
                             label="Coordinating subagents…"
                             doneLabel="Thought for"
                             glyph="sparkle"
                             fontSize={13}
-                            elapsed={thought.duration}
+                            elapsed={thought?.duration ?? 1.8}
                             collapsible
                             collapseOnSettle={true}
                             showTimer
@@ -612,12 +638,6 @@ export function ChatPage() {
             ) : null}
             {sending || streamed ? (
               <article className="message message-assistant message-streaming">
-                <span className="message-role">
-                  DocPilot
-                  {mode !== "simple" && runState && !["accepted", "starting"].includes(runState.toLowerCase())
-                    ? ` - ${runState}`
-                    : ""}
-                </span>
                 {mode !== "simple" ? (
                   <div className="agent-thinking-wrapper py-1">
                     <ThoughtLine
