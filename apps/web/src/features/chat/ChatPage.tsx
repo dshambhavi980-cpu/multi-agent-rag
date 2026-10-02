@@ -11,12 +11,14 @@ import {
   X,
 } from "lucide-react";
 import {
+  type ReactNode,
   type SyntheticEvent,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
@@ -107,6 +109,30 @@ function AnswerContent({
       </ReactMarkdown>
     </div>
   );
+}
+
+function TopbarPortal({
+  targetId,
+  children,
+}: {
+  targetId: string;
+  children: ReactNode;
+}) {
+  const [target, setTarget] = useState<HTMLElement | null>(() =>
+    typeof document !== "undefined" ? document.getElementById(targetId) : null,
+  );
+
+  useLayoutEffect(() => {
+    if (!target && typeof document !== "undefined") {
+      setTarget(document.getElementById(targetId));
+    }
+  }, [targetId, target]);
+
+  if (!target) {
+    return <div className="chat-toolbar-fallback">{children}</div>;
+  }
+
+  return createPortal(children, target);
 }
 
 export function ChatPage() {
@@ -270,7 +296,7 @@ export function ChatPage() {
   return (
     <section className="chat-page" aria-labelledby="chat-title">
       <h1 className="sr-only" id="chat-title">Chat</h1>
-      <header className="chat-toolbar">
+      <TopbarPortal targetId="topbar-chat-left">
         <button
           className="chat-toolbar-button"
           type="button"
@@ -279,18 +305,34 @@ export function ChatPage() {
             setConversationsOpen(true);
           }}
         >
-          <History size={18} /> Conversations
+          <History size={18} />
+          <span>Conversations</span>
         </button>
-        <span className="chat-title">
+      </TopbarPortal>
+
+      <TopbarPortal targetId="topbar-chat-center">
+        <span
+          className="chat-title"
+          title={
+            activeId
+              ? (conversations.data?.items.find((item) => item.id === activeId)?.title ??
+                "Untitled conversation")
+              : "New conversation"
+          }
+        >
           {activeId
             ? (conversations.data?.items.find((item) => item.id === activeId)?.title ??
               "Untitled conversation")
             : "New conversation"}
         </span>
+      </TopbarPortal>
+
+      <TopbarPortal targetId="topbar-chat-right">
         <button className="chat-toolbar-button" type="button" onClick={resetDraft}>
-          <MessageSquarePlus size={18} /> New chat
+          <MessageSquarePlus size={18} />
+          <span>New chat</span>
         </button>
-      </header>
+      </TopbarPortal>
 
       {!online ? (
         <div className="inline-notice notice-warning" role="alert">

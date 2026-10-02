@@ -231,7 +231,10 @@ function AuthenticatedApp() {
               onChange={selectWorkspace}
             />
           ) : null}
+          <div id="topbar-chat-left" className="topbar-chat-left" />
+          <div id="topbar-chat-center" className="topbar-chat-center" />
           <div className="topbar-actions">
+            <div id="topbar-chat-right" className="topbar-chat-right" />
             <ThemeToggle />
             <div
               className="user-avatar"
