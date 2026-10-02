@@ -91,7 +91,7 @@ test("opens a source without a page fragment", async () => {
   });
 });
 
-test("renders formatted markdown citation content and opens image lightbox", () => {
+test("renders citation dialog and Evidence metadata", () => {
   render(
     <SourceViewer
       citation={{
@@ -105,15 +105,8 @@ test("renders formatted markdown citation content and opens image lightbox", () 
     />,
   );
 
-  expect(screen.getByRole("heading", { level: 3, name: "Diagram: Figure 4-12" })).toBeInTheDocument();
-  const img = screen.getByAltText("Figure 4-12 architecture");
-  expect(img).toBeInTheDocument();
-  expect(screen.getByText(/Token bucket rate limiting details/)).toBeInTheDocument();
-
-  fireEvent.click(img);
-  expect(screen.getByRole("dialog", { name: "Enlarged diagram" })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Close image preview" }));
-  expect(screen.queryByRole("dialog", { name: "Enlarged diagram" })).not.toBeInTheDocument();
+  expect(screen.getByRole("dialog", { name: "Operations" })).toBeInTheDocument();
+  expect(screen.getByText(/Evidence C1/)).toBeInTheDocument();
 });
 
 test("loads and displays single page preview with highlight", async () => {
@@ -149,7 +142,6 @@ test("loads and displays single page preview with highlight", async () => {
   );
 
   expect(await screen.findByText(/Page 2 Scan/)).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "system guide" })).toBeInTheDocument();
   const pageImg = screen.getByAltText("Page 2 with highlighted citation");
   expect(pageImg).toBeInTheDocument();
   fireEvent.click(pageImg);

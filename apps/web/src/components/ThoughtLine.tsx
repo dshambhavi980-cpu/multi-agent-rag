@@ -225,15 +225,14 @@ export const ThoughtLine: React.FC<ThoughtLineProps> = ({
         >
           <span
             ref={breathRef}
-            className="inline-block group-data-[working]:data-[shimmer]:bg-clip-text group-data-[working]:data-[shimmer]:text-transparent group-data-[working]:data-[shimmer]:[background-image:linear-gradient(100deg,color-mix(in_srgb,var(--tl-color)_50%,transparent)_30%,var(--tl-color)_50%,color-mix(in_srgb,var(--tl-color)_50%,transparent)_70%)] group-data-[working]:data-[shimmer]:[background-size:250%_100%] group-data-[working]:data-[shimmer]:[background-position:125%_0] group-data-[working]:data-[shimmer]:[-webkit-text-fill-color:transparent] group-data-[working]:data-[shimmer]:[animation:thought-line-shimmer_var(--tl-shimmer)_linear_infinite]"
-            data-shimmer={sheen ? '' : undefined}
+            className="inline-block text-inherit font-medium"
           >
             {renderLabel ? renderLabel(label, true) : label}
           </span>
         </span>
         <span
           ref={doneRef}
-          className="w-max opacity-0 [grid-area:1/1] [filter:blur(var(--tl-blur))] [transition:opacity_var(--tl-settle)_cubic-bezier(0.23,1,0.32,1),filter_var(--tl-settle)_cubic-bezier(0.23,1,0.32,1)] data-[active]:[opacity:var(--tl-done)] data-[active]:[filter:blur(0)] motion-reduce:[filter:none]! motion-reduce:[transition:opacity_var(--tl-settle)_ease]"
+          className="w-max opacity-0 [grid-area:1/1] [filter:blur(var(--tl-blur))] [transition:opacity_var(--tl-settle)_cubic-bezier(0.23,1,0.32,1),filter_var(--tl-settle)_cubic-bezier(0.23,1,0.32,1)] data-[active]:opacity-75 data-[active]:[filter:blur(0)] motion-reduce:[filter:none]! motion-reduce:[transition:opacity_var(--tl-settle)_ease]"
           data-active={isWorking ? undefined : ''}
         >
           {renderLabel ? renderLabel(doneText, false) : doneText}
@@ -242,7 +241,7 @@ export const ThoughtLine: React.FC<ThoughtLineProps> = ({
       {showTimer ? (
         <span
           ref={timerRef}
-          className="tabular-nums [opacity:var(--tl-timer)] [transition:opacity_var(--tl-settle)_ease,transform_var(--tl-settle)_cubic-bezier(0.77,0,0.175,1)] data-[done]:[opacity:var(--tl-done)] motion-reduce:[transition:opacity_var(--tl-settle)_ease]"
+          className="tabular-nums opacity-60 [transition:opacity_var(--tl-settle)_ease,transform_var(--tl-settle)_cubic-bezier(0.77,0,0.175,1)] data-[done]:opacity-75 motion-reduce:[transition:opacity_var(--tl-settle)_ease]"
           data-done={isWorking ? undefined : ''}
           aria-hidden="true"
         >
@@ -277,6 +276,8 @@ export const ThoughtLine: React.FC<ThoughtLineProps> = ({
           '--tl-settle': `${settleDuration}ms`,
           '--tl-blur': `${settleBlur}px`,
           '--tl-shimmer': `${shimmerDuration}s`,
+          '--tl-done': '0.75',
+          '--tl-timer': '0.6',
           ...style
         } as CSSProperties
       }

@@ -9,12 +9,14 @@ import {
   CommentAdd01Icon,
   File02Icon,
   Loading03Icon,
+  Search01Icon,
   SendIcon,
   WifiDisconnected01Icon,
 } from "@hugeicons/core-free-icons";
 import {
   type ReactNode,
   type SyntheticEvent,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -72,11 +74,13 @@ function AnswerContent({
   citations,
   onCitation,
   onImageClick,
+  isStreaming,
 }: {
   content: string;
   citations: Citation[];
   onCitation: (citation: Citation) => void;
   onImageClick?: (image: { src: string; alt?: string }) => void;
+  isStreaming?: boolean;
 }) {
   const citationMap = new Map(citations.map((citation) => [citation.citation_id, citation]));
   const markdown = normalizeMarkdownContent(content);
@@ -129,6 +133,9 @@ function AnswerContent({
       >
         {markdown}
       </ReactMarkdown>
+      {isStreaming ? (
+        <span className="streaming-cursor" aria-hidden="true">▋</span>
+      ) : null}
     </div>
   );
 }
@@ -176,6 +183,15 @@ export function ChatPage() {
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [streamed, setStreamed] = useState("");
+  const fullStreamedRef = useRef("");
+  const displayedStreamedRef = useRef("");
+  const streamIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastThoughtDurationRef = useRef<number>(1.8);
+  const [thoughtsByMessageId, setThoughtsByMessageId] = useState<
+    Map<string, { duration: number; steps: string[] }>
+  >(new Map());
+  const [conversationsOpen, setConversationsOpen] = useState(false);
+  const [conversationSearch, setConversationSearch] = useState("");
   const [streamCitations, setStreamCitations] = useState<Citation[]>([]);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [runState, setRunState] = useState<string | null>(null);
@@ -183,7 +199,6 @@ export function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<Citation | null>(null);
   const [lightbox, setLightbox] = useState<{ src: string; alt?: string } | null>(null);
-  const [conversationsOpen, setConversationsOpen] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const awaitingReview = runState === "Awaiting human review";
@@ -191,6 +206,48 @@ export function ChatPage() {
     Authorization: `Bearer ${session?.access_token ?? ""}`,
     "X-Workspace-ID": workspaceId ?? "",
   };
+
+  useEffect(() => {
+    if (!conversationsOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setConversationsOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [conversationsOpen]);
+
+  useEffect(() => {
+    if (!sending) {
+      if (streamIntervalRef.current) {
+        clearInterval(streamIntervalRef.current);
+        streamIntervalRef.current = null;
+      }
+      return;
+    }
+
+    if (!streamIntervalRef.current) {
+      streamIntervalRef.current = setInterval(() => {
+        const full = fullStreamedRef.current;
+        const current = displayedStreamedRef.current;
+        if (current.length < full.length) {
+          const remaining = full.length - current.length;
+          const step = Math.min(remaining, Math.max(2, Math.ceil(remaining / 5)));
+          const next = full.slice(0, current.length + step);
+          displayedStreamedRef.current = next;
+          setStreamed(next);
+        }
+      }, 20);
+    }
+
+    return () => {
+      if (streamIntervalRef.current) {
+        clearInterval(streamIntervalRef.current);
+        streamIntervalRef.current = null;
+      }
+    };
+  }, [sending]);
 
   useLayoutEffect(() => {
     const composer = composerRef.current;
@@ -207,6 +264,14 @@ export function ChatPage() {
     queryFn: () =>
       requestJson<ConversationPage>("/v1/conversations", { headers }),
   });
+  const filteredConversations = useMemo(() => {
+    const items = conversations.data?.items ?? [];
+    if (!conversationSearch.trim()) return items;
+    const q = conversationSearch.toLowerCase().trim();
+    return items.filter((item) =>
+      (item.title ?? "Untitled conversation").toLowerCase().includes(q),
+    );
+  }, [conversations.data?.items, conversationSearch]);
   const activeId =
     selectedId === "new"
       ? null
@@ -235,6 +300,8 @@ export function ChatPage() {
     setSelectedId("new");
     setQuestion("");
     setStreamed("");
+    fullStreamedRef.current = "";
+    displayedStreamedRef.current = "";
     setStreamCitations([]);
     setPendingQuestion(null);
     setRunState(null);
@@ -245,7 +312,7 @@ export function ChatPage() {
   const handleEvent = (event: SseEvent) => {
     if (event.event_type === "answer.delta" && typeof event.delta === "string") {
       const delta = event.delta;
-      setStreamed((value) => value + delta);
+      fullStreamedRef.current += delta;
       setAgentSteps((steps) => {
         const step = "Synthesis Agent: Generating grounded answer";
         return steps.includes(step) ? steps : [...steps, step];
@@ -283,6 +350,8 @@ export function ChatPage() {
     setSending(true);
     setError(null);
     setStreamed("");
+    fullStreamedRef.current = "";
+    displayedStreamedRef.current = "";
     setStreamCitations([]);
     setPendingQuestion(content);
     setRunState("Starting");
@@ -313,6 +382,24 @@ export function ChatPage() {
       );
       setRunState(accepted.status);
       await streamSse(accepted.events_url, { headers }, handleEvent);
+
+      // Drain remaining buffered stream smoothly so all words finish revealing
+      while (displayedStreamedRef.current.length < fullStreamedRef.current.length) {
+        await new Promise((r) => setTimeout(r, 25));
+      }
+      await new Promise((r) => setTimeout(r, 60));
+
+      if (activeMode !== "simple" && agentSteps.length > 0) {
+        setThoughtsByMessageId((prev) => {
+          const next = new Map(prev);
+          next.set(accepted.message_id, {
+            duration: lastThoughtDurationRef.current || 1.8,
+            steps: [...agentSteps],
+          });
+          return next;
+        });
+      }
+
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["conversations", workspaceId] }),
         queryClient.invalidateQueries({
@@ -322,6 +409,8 @@ export function ChatPage() {
       ]);
       setPendingQuestion(null);
       setStreamed("");
+      fullStreamedRef.current = "";
+      displayedStreamedRef.current = "";
       setStreamCitations([]);
     } catch (caught) {
       setError(friendlyError(caught));
@@ -465,71 +554,6 @@ export function ChatPage() {
       ) : null}
 
       <div className="chat-workspace">
-        <button
-          className={`conversation-backdrop${conversationsOpen ? " is-open" : ""}`}
-          type="button"
-          aria-label="Close conversations"
-          tabIndex={conversationsOpen ? 0 : -1}
-          onClick={() => {
-            setConversationsOpen(false);
-          }}
-        />
-        <aside
-          className={`conversation-drawer${conversationsOpen ? " is-open" : ""}`}
-          aria-label="Conversations"
-          aria-hidden={!conversationsOpen}
-        >
-          <div className="conversation-drawer-heading">
-            <div>
-              <strong>Conversations</strong>
-              <span>Continue a previous thread</span>
-            </div>
-            <button
-              className="icon-button"
-              type="button"
-              aria-label="Close conversations"
-              onClick={() => {
-                setConversationsOpen(false);
-              }}
-            >
-              <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.8} />
-            </button>
-          </div>
-          <button
-            className="conversation-new"
-            type="button"
-            onClick={() => {
-              resetDraft();
-              setConversationsOpen(false);
-            }}
-          >
-            <HugeiconsIcon icon={CommentAdd01Icon} size={17} strokeWidth={1.8} /> New conversation
-          </button>
-          <div className="conversation-list">
-          {(conversations.data?.items ?? []).map((conversation) => (
-            <button
-              type="button"
-              key={conversation.id}
-              aria-current={activeId === conversation.id ? "true" : undefined}
-              onClick={() => {
-                setSelectedId(conversation.id);
-                setPendingQuestion(null);
-                setStreamed("");
-                setError(null);
-                setConversationsOpen(false);
-              }}
-            >
-              <span>{conversation.title ?? "Untitled conversation"}</span>
-              <HugeiconsIcon icon={ArrowRight01Icon} size={15} strokeWidth={1.8} />
-            </button>
-          ))}
-          {conversations.isLoading ? <p>Loading conversations...</p> : null}
-          {!conversations.isLoading && !conversations.data?.items.length ? (
-            <p>No conversations yet.</p>
-          ) : null}
-          </div>
-        </aside>
-
         <div className="chat-thread">
           <div className="message-scroll" ref={scrollRef} aria-live="polite" aria-busy={sending}>
             {!messages.length && !pendingQuestion ? (
@@ -539,26 +563,47 @@ export function ChatPage() {
                 <p>Answers cite the exact source passages used.</p>
               </div>
             ) : null}
-            {messages.map((message) => (
-              <article className={`message message-${message.role}`} key={message.id}>
-                <span className="message-role">
-                  {message.role === "user" ? "You" : "DocPilot"}
-                </span>
-                {message.role === "assistant" ? (
-                  <AnswerContent
-                    content={message.content}
-                    citations={message.citations}
-                    onCitation={setSource}
-                    onImageClick={setLightbox}
-                  />
-                ) : (
-                  <p>{message.content}</p>
-                )}
-                {message.confidence !== null ? (
-                  <small>{Math.round(message.confidence * 100)}% confidence</small>
-                ) : null}
-              </article>
-            ))}
+            {messages.map((message) => {
+              const thought = thoughtsByMessageId.get(message.id);
+              return (
+                <article className={`message message-${message.role}`} key={message.id}>
+                  <span className="message-role">
+                    {message.role === "user" ? "You" : "DocPilot"}
+                  </span>
+                  {message.role === "assistant" ? (
+                    <>
+                      {thought && thought.steps.length > 0 ? (
+                        <div className="agent-thinking-wrapper py-1">
+                          <ThoughtLine
+                            working={false}
+                            steps={thought.steps}
+                            label="Coordinating subagents…"
+                            doneLabel="Thought for"
+                            glyph="sparkle"
+                            fontSize={13}
+                            elapsed={thought.duration}
+                            collapsible
+                            collapseOnSettle={true}
+                            showTimer
+                          />
+                        </div>
+                      ) : null}
+                      <AnswerContent
+                        content={message.content}
+                        citations={message.citations}
+                        onCitation={setSource}
+                        onImageClick={setLightbox}
+                      />
+                    </>
+                  ) : (
+                    <p>{message.content}</p>
+                  )}
+                  {message.confidence !== null ? (
+                    <small>{Math.round(message.confidence * 100)}% confidence</small>
+                  ) : null}
+                </article>
+              );
+            })}
             {pendingQuestion ? (
               <article className="message message-user">
                 <span className="message-role">You</span>
@@ -574,7 +619,7 @@ export function ChatPage() {
                     : ""}
                 </span>
                 {mode !== "simple" ? (
-                  <div className="agent-thinking-wrapper py-2">
+                  <div className="agent-thinking-wrapper py-1">
                     <ThoughtLine
                       working={sending && !streamed}
                       steps={agentSteps}
@@ -589,6 +634,9 @@ export function ChatPage() {
                       collapsible
                       collapseOnSettle={Boolean(streamed)}
                       showTimer
+                      onSettle={(sec) => {
+                        lastThoughtDurationRef.current = sec;
+                      }}
                     />
                   </div>
                 ) : null}
@@ -598,11 +646,17 @@ export function ChatPage() {
                     citations={streamCitations}
                     onCitation={setSource}
                     onImageClick={setLightbox}
+                    isStreaming={sending}
                   />
-                ) : (
+                ) : mode !== "simple" ? (
                   <p className="thinking-line">
                     <HugeiconsIcon icon={Loading03Icon} className="spin" size={16} strokeWidth={1.8} /> Retrieving evidence...
                   </p>
+                ) : (
+                  <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
+                    <HugeiconsIcon icon={Loading03Icon} className="spin" size={15} strokeWidth={2} />
+                    <span>Generating answer...</span>
+                  </div>
                 )}
               </article>
             ) : null}
@@ -774,6 +828,142 @@ export function ChatPage() {
             >
               <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.8} />
             </button>
+          </div>
+        </div>
+      ) : null}
+
+      {conversationsOpen ? (
+        <div
+          className="conversation-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="conversations-modal-title"
+          onClick={() => setConversationsOpen(false)}
+        >
+          <div
+            className="conversation-modal-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="conversation-modal-header">
+              <div className="conversation-modal-title-wrap">
+                <div className="flex items-center gap-2">
+                  <HugeiconsIcon icon={Clock01Icon} size={18} strokeWidth={2} />
+                  <h2 id="conversations-modal-title">Conversations</h2>
+                </div>
+                <p>Search and continue previous threads</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="conversation-modal-new-btn"
+                  onClick={() => {
+                    resetDraft();
+                    setConversationsOpen(false);
+                  }}
+                >
+                  <HugeiconsIcon icon={CommentAdd01Icon} size={14} strokeWidth={2} />
+                  <span>New chat</span>
+                </button>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Close conversations"
+                  onClick={() => setConversationsOpen(false)}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={18} strokeWidth={1.8} />
+                </button>
+              </div>
+            </div>
+
+            <div className="conversation-modal-search">
+              <HugeiconsIcon icon={Search01Icon} size={16} strokeWidth={2} />
+              <input
+                type="text"
+                className="conversation-search-input"
+                placeholder="Search conversations by title..."
+                value={conversationSearch}
+                onChange={(e) => setConversationSearch(e.target.value)}
+                autoFocus
+              />
+              {conversationSearch ? (
+                <button
+                  type="button"
+                  className="conversation-search-clear"
+                  onClick={() => setConversationSearch("")}
+                  aria-label="Clear search"
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} size={14} strokeWidth={2} />
+                </button>
+              ) : null}
+            </div>
+
+            <div className="conversation-modal-list">
+              {filteredConversations.length > 0 ? (
+                filteredConversations.map((conversation) => {
+                  const isActive = activeId === conversation.id;
+                  return (
+                    <button
+                      key={conversation.id}
+                      type="button"
+                      className={`conversation-modal-item ${isActive ? "active" : ""}`}
+                      onClick={() => {
+                        setSelectedId(conversation.id);
+                        setPendingQuestion(null);
+                        setStreamed("");
+                        fullStreamedRef.current = "";
+                        displayedStreamedRef.current = "";
+                        setError(null);
+                        setConversationsOpen(false);
+                      }}
+                    >
+                      <div className="conversation-modal-item-content">
+                        <div className="flex items-center gap-2">
+                          <span className="conversation-modal-item-title">
+                            {conversation.title ?? "Untitled conversation"}
+                          </span>
+                          {isActive ? (
+                            <span className="conversation-modal-item-badge">Active</span>
+                          ) : null}
+                        </div>
+                        <span className="conversation-modal-item-date">
+                          {new Date(
+                            conversation.updated_at || conversation.created_at,
+                          ).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      <HugeiconsIcon
+                        icon={ArrowRight01Icon}
+                        size={16}
+                        strokeWidth={2}
+                        className="conversation-modal-item-arrow"
+                      />
+                    </button>
+                  );
+                })
+              ) : conversations.isLoading ? (
+                <div className="conversation-modal-empty">
+                  <HugeiconsIcon
+                    icon={Loading03Icon}
+                    className="spin"
+                    size={20}
+                    strokeWidth={2}
+                  />
+                  <p>Loading conversations...</p>
+                </div>
+              ) : conversationSearch ? (
+                <div className="conversation-modal-empty">
+                  <p>No conversations matching &ldquo;{conversationSearch}&rdquo;</p>
+                </div>
+              ) : (
+                <div className="conversation-modal-empty">
+                  <p>No conversations yet. Start a new chat.</p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       ) : null}

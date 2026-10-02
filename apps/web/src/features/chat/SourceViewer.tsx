@@ -7,12 +7,8 @@ import {
   Loading03Icon,
 } from "@hugeicons/core-free-icons";
 import { useEffect, useState } from "react";
-import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
-import remarkBreaks from "remark-breaks";
-import remarkGfm from "remark-gfm";
 
 import { API_BASE_URL } from "../../api/client";
-import { normalizeMarkdownContent } from "./chat.utils";
 import type { Citation } from "./chat.types";
 
 type SourceAccess = {
@@ -123,8 +119,6 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
     };
   }, [onClose]);
 
-  const markdown = normalizeMarkdownContent(citation.quote);
-
   return (
     <div
       className="source-overlay"
@@ -155,43 +149,6 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
             <button className="icon-button" type="button" aria-label="Close source" onClick={onClose}>
               <HugeiconsIcon icon={Cancel01Icon} size={19} strokeWidth={1.8} />
             </button>
-          </div>
-        </div>
-
-        <div className="source-quote">
-          <div className="message-markdown">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkBreaks]}
-              urlTransform={(url) =>
-                url.startsWith("citation:") ? url : defaultUrlTransform(url)
-              }
-              components={{
-                img: ({ src, alt }) => {
-                  if (!src) return null;
-                  return (
-                    <span className="chat-figure" role="figure">
-                      <img
-                        src={src}
-                        alt={alt ?? "Architecture diagram"}
-                        className="chat-embedded-image"
-                        loading="lazy"
-                        onClick={() => {
-                          setPreviewImage(alt ? { src, alt } : { src });
-                        }}
-                      />
-                      {alt ? <span className="chat-figure-caption">{alt}</span> : null}
-                    </span>
-                  );
-                },
-                a: ({ href, children }) => (
-                  <a href={href} target="_blank" rel="noreferrer">
-                    {children}
-                  </a>
-                ),
-              }}
-            >
-              {markdown}
-            </ReactMarkdown>
           </div>
         </div>
 
@@ -239,7 +196,7 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
           {!source && !error && !pagePreviewUrl ? (
             <div className="source-state">
               <HugeiconsIcon icon={Loading03Icon} className="spin" size={16} strokeWidth={1.8} />
-              <span>Loading protected source...</span>
+              <span>Loading PDF page scan...</span>
             </div>
           ) : null}
           {error && !pagePreviewUrl ? (
