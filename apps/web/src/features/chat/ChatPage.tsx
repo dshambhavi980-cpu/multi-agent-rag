@@ -532,6 +532,7 @@ export function ChatPage() {
           aria-expanded={conversationsOpen}
           onClick={() => {
             setConversationsOpen(true);
+            void conversations.refetch();
           }}
         >
           <HugeiconsIcon icon={Clock01Icon} size={18} strokeWidth={1.8} />
@@ -960,7 +961,7 @@ export function ChatPage() {
                     </button>
                   );
                 })
-              ) : conversations.isLoading ? (
+              ) : conversations.isFetching ? (
                 <div className="conversation-modal-empty">
                   <HugeiconsIcon
                     icon={Loading03Icon}
