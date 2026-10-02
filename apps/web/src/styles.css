@@ -147,11 +147,82 @@ select:focus-visible {
   backdrop-filter: blur(10px);
 }
 
+.topbar-chat-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-chat-left:empty {
+  display: none;
+}
+
+.topbar-chat-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 16px;
+}
+
+.topbar-chat-center:empty {
+  display: none;
+}
+
+.topbar-chat-center .chat-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: min(520px, 100%);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #334155;
+  text-align: center;
+}
+
 .topbar-actions {
   display: flex;
   align-items: center;
   gap: 10px;
   margin-left: auto;
+}
+
+.topbar-chat-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.topbar-chat-right:empty {
+  display: none;
+}
+
+.topbar .chat-toolbar-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d4dae3;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+  white-space: nowrap;
+}
+
+.topbar .chat-toolbar-button:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.chat-toolbar-fallback {
+  display: contents;
 }
 
 .theme-toggle {
@@ -2849,9 +2920,22 @@ select:focus-visible {
     margin-left: auto;
   }
 
-  .chat-toolbar {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+  .topbar {
+    padding: 0 14px;
+    gap: 8px;
+  }
+
+  .topbar-chat-center {
+    display: none;
+  }
+
+  .topbar .chat-toolbar-button {
     padding: 0 8px;
+    font-size: 0;
+  }
+
+  .topbar .chat-toolbar-button span {
+    display: none;
   }
 
   .chat-toolbar-button {
@@ -3079,6 +3163,22 @@ html.dark .topbar {
   background: rgb(0 0 0 / 0.85);
   border-bottom-color: #27272a;
   backdrop-filter: blur(12px);
+}
+
+html.dark .topbar .chat-toolbar-button {
+  border-color: #27272a;
+  background: #09090b;
+  color: #d4d4d8;
+}
+
+html.dark .topbar .chat-toolbar-button:hover {
+  background: #18181b;
+  border-color: #3f3f46;
+  color: #fafafa;
+}
+
+html.dark .topbar-chat-center .chat-title {
+  color: #f4f4f5;
 }
 
 html.dark .user-avatar {
