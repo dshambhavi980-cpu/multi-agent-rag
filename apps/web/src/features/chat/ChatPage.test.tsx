@@ -356,3 +356,40 @@ test("supports dictation and sending with custom model detail", async () => {
   });
 });
 
+test("opens conversation search modal, filters items, and selects a thread", async () => {
+  renderWithProviders(<ChatPage />);
+  await screen.findAllByText("Emergency access");
+
+  const convBtn = screen.getByRole("button", { name: "Conversations" });
+  fireEvent.click(convBtn);
+
+  const modal = await screen.findByRole("dialog", { name: "Conversations" });
+  expect(modal).toBeInTheDocument();
+
+  const searchInput = screen.getByPlaceholderText("Search conversations by title...");
+  fireEvent.change(searchInput, { target: { value: "Emergency" } });
+  expect(screen.getByText("Emergency access")).toBeInTheDocument();
+
+  const clearBtn = screen.getByRole("button", { name: "Clear search" });
+  fireEvent.click(clearBtn);
+  expect(searchInput).toHaveValue("");
+
+  fireEvent.change(searchInput, { target: { value: "Non-existent thread query" } });
+  expect(screen.getByText(/No conversations matching/)).toBeInTheDocument();
+
+  fireEvent.change(searchInput, { target: { value: "" } });
+  const itemBtn = screen.getByRole("button", { name: /Emergency access/ });
+  fireEvent.click(itemBtn);
+  expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
+
+  fireEvent.click(convBtn);
+  expect(await screen.findByRole("dialog", { name: "Conversations" })).toBeInTheDocument();
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
+
+  fireEvent.click(convBtn);
+  const newChatInModal = screen.getByRole("button", { name: "New chat" });
+  fireEvent.click(newChatInModal);
+  expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
+});
+
