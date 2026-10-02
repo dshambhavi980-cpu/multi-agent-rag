@@ -3,6 +3,7 @@ from typing import Any, cast
 import httpx
 
 from app.api.errors import ApplicationError
+from app.core.logging import get_logger
 
 
 class SupabaseAdminClient:
@@ -20,9 +21,18 @@ class SupabaseAdminClient:
     async def aclose(self) -> None:
         await self._client.aclose()
 
-    async def rpc(self, name: str, payload: dict[str, Any]) -> Any:
+    async def rpc(
+        self,
+        name: str,
+        payload: dict[str, Any],
+        *,
+        request_timeout: float | httpx.Timeout | None = None,
+    ) -> Any:
         try:
-            response = await self._client.post(f"/{name}", json=payload)
+            kwargs: dict[str, Any] = {}
+            if request_timeout is not None:
+                kwargs["timeout"] = request_timeout
+            response = await self._client.post(f"/{name}", json=payload, **kwargs)
             if not response.is_success:
                 body = response.json()
                 code = str(body.get("code", ""))
@@ -53,6 +63,12 @@ class SupabaseAdminClient:
         except ApplicationError:
             raise
         except (httpx.HTTPError, ValueError) as exc:
+            get_logger().warning(
+                "supabase_admin_rpc_failed",
+                function=name,
+                error=str(exc),
+                error_type=type(exc).__name__,
+            )
             raise ApplicationError(
                 "INGESTION_PROVIDER_UNAVAILABLE",
                 "Ingestion provider unavailable",
@@ -73,8 +89,14 @@ class UnavailableAdminClient:
     async def aclose(self) -> None:
         return None
 
-    async def rpc(self, name: str, payload: dict[str, Any]) -> Any:
-        del name, payload
+    async def rpc(
+        self,
+        name: str,
+        payload: dict[str, Any],
+        *,
+        request_timeout: float | httpx.Timeout | None = None,
+    ) -> Any:
+        del name, payload, request_timeout
         raise ApplicationError(
             "SERVICE_ROLE_NOT_CONFIGURED",
             "Document ingestion unavailable",

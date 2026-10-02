@@ -178,6 +178,11 @@ async def complete_upload(
     duplicate_path = result.pop("duplicate_object_path", None)
     if duplicate_path:
         await storage.remove(str(duplicate_path))
+    worker = getattr(request.app.state, "ingestion_worker", None)
+    if worker is not None and hasattr(worker, "notify"):
+        if hasattr(worker, "cache_document_content"):
+            worker.cache_document_content(body.object_path, content)
+        worker.notify()
     return IngestionAccepted.model_validate(result)
 
 

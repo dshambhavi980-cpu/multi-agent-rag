@@ -35,3 +35,5 @@ Thumbs.db
 *.log
 artifacts/
 backups/
+scratch/
+supabase/.temp/

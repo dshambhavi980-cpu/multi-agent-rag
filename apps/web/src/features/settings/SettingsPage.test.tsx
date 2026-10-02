@@ -73,3 +73,12 @@ test("shows rename and usage failures", async () => {
   fireEvent.submit(form as HTMLFormElement);
   expect(await screen.findByText(/could not be updated/)).toBeInTheDocument();
 });
+
+test("allows switching appearance preferences", () => {
+  renderWithProviders(<SettingsPage />);
+  expect(screen.getByRole("heading", { name: "Appearance" })).toBeInTheDocument();
+  const darkOption = screen.getByRole("radio", { name: /Dark/ });
+  expect(darkOption).toBeInTheDocument();
+  fireEvent.click(darkOption);
+});
+

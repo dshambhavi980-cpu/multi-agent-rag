@@ -2,7 +2,7 @@ import os
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import AnyHttpUrl, Field, SecretStr
+from pydantic import AliasChoices, AnyHttpUrl, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     supabase_publishable_key: SecretStr | None = None
     supabase_service_role_key: SecretStr | None = None
     supabase_jwks_cache_seconds: int = Field(default=600, ge=60, le=3600)
-    supabase_http_timeout_seconds: float = Field(default=3.0, gt=0, le=15)
+    supabase_http_timeout_seconds: float = Field(default=10.0, gt=0, le=60)
     provider_max_concurrency: int = Field(default=8, ge=1, le=64)
     provider_acquire_timeout_seconds: float = Field(default=0.25, gt=0, le=5)
     provider_circuit_failure_threshold: int = Field(default=5, ge=2, le=20)
@@ -41,10 +41,11 @@ class Settings(BaseSettings):
     expensive_requests_per_minute: int = Field(default=20, ge=1, le=1000)
     recovery_interval_seconds: int = Field(default=300, ge=30, le=3600)
     ingestion_worker_enabled: bool = True
-    ingestion_poll_seconds: float = Field(default=1.0, ge=0.1, le=30)
-    ingestion_visibility_seconds: int = Field(default=120, ge=30, le=900)
+    ingestion_poll_seconds: float = Field(default=0.5, ge=0.05, le=30)
+    ingestion_visibility_seconds: int = Field(default=300, ge=30, le=900)
     ingestion_batch_size: int = Field(default=2, ge=1, le=10)
-    ingestion_parse_timeout_seconds: float = Field(default=45, gt=0, le=300)
+    ingestion_parse_timeout_seconds: float = Field(default=120, gt=0, le=300)
+    ingestion_rpc_timeout_seconds: float = Field(default=120, gt=0, le=600)
     index_strategy: Literal["fixed", "recursive", "heading_recursive"] = "heading_recursive"
     index_target_chars: int = Field(default=1800, ge=256, le=4000)
     index_overlap_chars: int = Field(default=0, ge=0, le=1000)
@@ -86,15 +87,36 @@ class Settings(BaseSettings):
     generation_max_retries: int = Field(default=1, ge=0, le=3)
     generation_retry_base_seconds: float = Field(default=0.5, gt=0, le=10)
     generation_max_output_tokens: int = Field(default=640, ge=64, le=4096)
-    gemini_api_key: SecretStr | None = Field(default=None, validation_alias="GEMINI_API_KEY")
+    embedding_provider: Literal["gemini", "cloudflare"] = Field(
+        default="cloudflare",
+        validation_alias=AliasChoices("APP_EMBEDDING_PROVIDER", "EMBEDDING_PROVIDER"),
+    )
+    cloudflare_account_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("APP_CLOUDFLARE_ACCOUNT_ID", "CLOUDFLARE_ACCOUNT_ID"),
+    )
+    cloudflare_api_token: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("APP_CLOUDFLARE_API_TOKEN", "CLOUDFLARE_API_TOKEN"),
+    )
+    cloudflare_embedding_model: str = Field(
+        default="@cf/baai/bge-base-en-v1.5",
+        validation_alias=AliasChoices(
+            "APP_CLOUDFLARE_EMBEDDING_MODEL", "CLOUDFLARE_EMBEDDING_MODEL"
+        ),
+    )
+    gemini_api_key: SecretStr | None = Field(
+        default=None,
+        validation_alias=AliasChoices("APP_GEMINI_API_KEY", "GEMINI_API_KEY"),
+    )
     gemini_chat_model: str = Field(
         default="gemini-3.1-flash-lite",
         min_length=1,
-        validation_alias="GEMINI_CHAT_MODEL",
+        validation_alias=AliasChoices("APP_GEMINI_CHAT_MODEL", "GEMINI_CHAT_MODEL"),
     )
     gemini_embedding_model: str = Field(
         default="gemini-embedding-001",
-        validation_alias="GEMINI_EMBEDDING_MODEL",
+        validation_alias=AliasChoices("APP_GEMINI_EMBEDDING_MODEL", "GEMINI_EMBEDDING_MODEL"),
     )
 
 

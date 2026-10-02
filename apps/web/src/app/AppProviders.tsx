@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { PropsWithChildren } from "react";
 
 import { AuthProvider } from "../features/auth/AuthProvider";
+import { ThemeProvider } from "../features/theme/ThemeProvider";
 import { WorkspaceProvider } from "../features/workspaces/WorkspaceProvider";
 
 const queryClient = new QueryClient({
@@ -18,9 +19,11 @@ const queryClient = new QueryClient({
 export function AppProviders({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <WorkspaceProvider>{children}</WorkspaceProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <WorkspaceProvider>{children}</WorkspaceProvider>
+        </AuthProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

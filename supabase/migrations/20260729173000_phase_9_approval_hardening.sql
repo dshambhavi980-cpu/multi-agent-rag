@@ -71,6 +71,6 @@ begin
       ),
       completed_at = now()
   where run.workspace_id = p_workspace_id
-    and run.id in (select expired.run_id);
+    and run.id in (select run_id from expired);
 end;
 $$;

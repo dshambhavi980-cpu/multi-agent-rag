@@ -4,15 +4,19 @@ import {
   Database,
   FileStack,
   Gauge,
+  Laptop,
   MessageSquareText,
+  Moon,
   Save,
   ShieldCheck,
+  Sun,
 } from "lucide-react";
 import { type SyntheticEvent, useState } from "react";
 
 import { requestJson } from "../../api/client";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../auth/auth-context";
+import { useTheme } from "../theme/theme-context";
 import { useWorkspace } from "../workspaces/workspace-context";
 
 type Usage = {
@@ -33,6 +37,7 @@ function formatBytes(size: number): string {
 export function SettingsPage() {
   const { session, user } = useAuth();
   const { activeWorkspace } = useWorkspace();
+  const { theme, setTheme } = useTheme();
   const queryClient = useQueryClient();
   const [name, setName] = useState(activeWorkspace?.name ?? "");
   const workspaceId = activeWorkspace?.id;
@@ -78,41 +83,86 @@ export function SettingsPage() {
       </div>
 
       <div className="settings-layout">
-        <section className="settings-section" aria-labelledby="workspace-settings-title">
-          <h2 id="workspace-settings-title">Workspace</h2>
-          <form className="settings-form" onSubmit={submit}>
-            <label htmlFor="settings-workspace-name">Workspace name</label>
-            <div>
-              <input
-                id="settings-workspace-name"
-                minLength={2}
-                maxLength={80}
-                value={name}
-                onChange={(event) => {
-                  setName(event.target.value);
-                }}
-              />
+        <div className="settings-column">
+          <section className="settings-section" aria-labelledby="workspace-settings-title">
+            <h2 id="workspace-settings-title">Workspace</h2>
+            <form className="settings-form" onSubmit={submit}>
+              <label htmlFor="settings-workspace-name">Workspace name</label>
+              <div>
+                <input
+                  id="settings-workspace-name"
+                  minLength={2}
+                  maxLength={80}
+                  value={name}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                  }}
+                />
+                <button
+                  className="primary-button settings-save"
+                  type="submit"
+                  disabled={rename.isPending || name.trim() === activeWorkspace?.name}
+                >
+                  {rename.isSuccess ? <Check size={17} /> : <Save size={17} />}
+                  {rename.isSuccess ? "Saved" : "Save"}
+                </button>
+              </div>
+            </form>
+            {rename.isError ? (
+              <p className="form-message form-error" role="alert">
+                The workspace name could not be updated.
+              </p>
+            ) : null}
+            <dl className="identity-list">
+              <div><dt>Session</dt><dd>Guest</dd></div>
+              <div><dt>Role</dt><dd>Workspace owner</dd></div>
+              <div><dt>User ID</dt><dd>{user?.id.slice(0, 8) ?? "-"}</dd></div>
+            </dl>
+          </section>
+
+          <section className="settings-section" aria-labelledby="appearance-settings-title">
+            <h2 id="appearance-settings-title">Appearance</h2>
+            <p className="settings-desc">Choose between light, dark, or system appearance.</p>
+            <div className="appearance-picker" role="radiogroup" aria-label="Appearance options">
               <button
-                className="primary-button settings-save"
-                type="submit"
-                disabled={rename.isPending || name.trim() === activeWorkspace?.name}
+                type="button"
+                role="radio"
+                aria-checked={theme === "light"}
+                className={`appearance-btn${theme === "light" ? " appearance-btn-active" : ""}`}
+                onClick={() => {
+                  setTheme("light");
+                }}
               >
-                {rename.isSuccess ? <Check size={17} /> : <Save size={17} />}
-                {rename.isSuccess ? "Saved" : "Save"}
+                <Sun size={18} aria-hidden="true" />
+                <span>Light</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={theme === "dark"}
+                className={`appearance-btn${theme === "dark" ? " appearance-btn-active" : ""}`}
+                onClick={() => {
+                  setTheme("dark");
+                }}
+              >
+                <Moon size={18} aria-hidden="true" />
+                <span>Dark</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={theme === "system"}
+                className={`appearance-btn${theme === "system" ? " appearance-btn-active" : ""}`}
+                onClick={() => {
+                  setTheme("system");
+                }}
+              >
+                <Laptop size={18} aria-hidden="true" />
+                <span>System</span>
               </button>
             </div>
-          </form>
-          {rename.isError ? (
-            <p className="form-message form-error" role="alert">
-              The workspace name could not be updated.
-            </p>
-          ) : null}
-          <dl className="identity-list">
-            <div><dt>Session</dt><dd>Guest</dd></div>
-            <div><dt>Role</dt><dd>Workspace owner</dd></div>
-            <div><dt>User ID</dt><dd>{user?.id.slice(0, 8) ?? "-"}</dd></div>
-          </dl>
-        </section>
+          </section>
+        </div>
 
         <section className="settings-section usage-section" aria-labelledby="usage-title">
           <div className="section-heading">

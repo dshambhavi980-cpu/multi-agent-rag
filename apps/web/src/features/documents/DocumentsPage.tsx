@@ -60,7 +60,7 @@ export function DocumentsPage() {
       query.state.data?.items.some((item) =>
         ["uploaded", "queued", "processing"].includes(item.status),
       )
-        ? 2_000
+        ? 500
         : false,
   });
   const documentItems = documents.data?.items ?? [];

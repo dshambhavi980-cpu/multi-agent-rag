@@ -38,5 +38,11 @@ services:
         sync: false
       - key: APP_SUPABASE_SERVICE_ROLE_KEY
         sync: false
+      - key: APP_EMBEDDING_PROVIDER
+        value: cloudflare
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_API_TOKEN
+        sync: false
       - key: GEMINI_API_KEY
         sync: false

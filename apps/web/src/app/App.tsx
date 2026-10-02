@@ -18,6 +18,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { SelectMenu } from "../components/SelectMenu";
 import { AuthGate } from "../features/auth/AuthGate";
 import { SystemOverview } from "../features/system/SystemOverview";
+import { ThemeToggle } from "../features/theme/ThemeToggle";
 import { WorkspaceGate } from "../features/workspaces/WorkspaceGate";
 import { useWorkspace } from "../features/workspaces/workspace-context";
 
@@ -230,12 +231,15 @@ function AuthenticatedApp() {
               onChange={selectWorkspace}
             />
           ) : null}
-          <div
-            className="user-avatar"
-            aria-label="Guest session"
-            title="Guest session"
-          >
-            G
+          <div className="topbar-actions">
+            <ThemeToggle />
+            <div
+              className="user-avatar"
+              aria-label="Guest session"
+              title="Guest session"
+            >
+              G
+            </div>
           </div>
         </header>
 
