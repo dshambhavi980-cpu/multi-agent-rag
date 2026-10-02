@@ -1,0 +1,36 @@
+declare module '@hugeicons/core-free-icons' {
+  export type IconSvgElement = readonly (readonly [string, { readonly [key: string]: string | number }])[];
+  export const ArrowDown01Icon: IconSvgElement;
+  export const Attachment01Icon: IconSvgElement;
+  export const Calendar03Icon: IconSvgElement;
+  export const Cancel01Icon: IconSvgElement;
+  export const ChartLineData01Icon: IconSvgElement;
+  export const File02Icon: IconSvgElement;
+  export const Globe02Icon: IconSvgElement;
+  export const HelpCircleIcon: IconSvgElement;
+  export const Mail01Icon: IconSvgElement;
+  export const Mic01Icon: IconSvgElement;
+  export const PlusSignIcon: IconSvgElement;
+  export const SparklesIcon: IconSvgElement;
+  export const Tick02Icon: IconSvgElement;
+  export const DashboardSquare01Icon: IconSvgElement;
+  export const Database01Icon: IconSvgElement;
+  export const Activity01Icon: IconSvgElement;
+  export const StarIcon: IconSvgElement;
+  export const Settings01Icon: IconSvgElement;
+  export const Settings02Icon: IconSvgElement;
+  export const Search01Icon: IconSvgElement;
+  export const RefreshIcon: IconSvgElement;
+  export const Send01Icon: IconSvgElement;
+  export const StopIcon: IconSvgElement;
+  export const UserIcon: IconSvgElement;
+  export const Logout01Icon: IconSvgElement;
+  export const ShieldKeyIcon: IconSvgElement;
+  export const Clock01Icon: IconSvgElement;
+  export const CheckmarkCircle01Icon: IconSvgElement;
+  export const Alert01Icon: IconSvgElement;
+  export const InformationCircleIcon: IconSvgElement;
+  export const Comment01Icon: IconSvgElement;
+  export const BotIcon: IconSvgElement;
+  export const ShieldCheckIcon: IconSvgElement;
+}

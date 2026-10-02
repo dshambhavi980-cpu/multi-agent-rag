@@ -1,11 +1,11 @@
-import { ExternalLink, FileSearch, LoaderCircle, X } from "lucide-react";
+import { ExternalLink, FileSearch, LoaderCircle, Maximize2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import ReactMarkdown, { defaultUrlTransform } from "react-markdown";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
 
 import { API_BASE_URL } from "../../api/client";
-import { normalizeMarkdownContent } from "./ChatPage";
+import { normalizeMarkdownContent } from "./chat.utils";
 import type { Citation } from "./chat.types";
 
 type SourceAccess = {
@@ -33,6 +33,7 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
   const [source, setSource] = useState<string | null>(() =>
     cachedSource(workspaceId, citation.source_url),
   );
+  const [pagePreviewUrl, setPagePreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ src: string; alt?: string } | null>(null);
 
@@ -73,6 +74,39 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
   }, [accessToken, citation, workspaceId]);
 
   useEffect(() => {
+    if (!citation.page) return;
+    const docMatch = citation.source_url.match(/\/documents\/([0-9a-fA-F-]+)/);
+    if (!docMatch) return;
+    const documentId = docMatch[1] ?? "";
+    const controller = new AbortController();
+
+    const loadPreview = async () => {
+      try {
+        const q = encodeURIComponent(citation.quote.slice(0, 300));
+        const p = String(citation.page ?? 1);
+        const url = `${API_BASE_URL}/v1/documents/${documentId}/pages/${p}/preview?quote=${q}`;
+        const res = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "X-Workspace-ID": workspaceId,
+          },
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const blob = await res.blob();
+          setPagePreviewUrl(URL.createObjectURL(blob));
+        }
+      } catch {
+        // Fallback to standard source view
+      }
+    };
+    void loadPreview();
+    return () => {
+      controller.abort();
+    };
+  }, [accessToken, citation, workspaceId]);
+
+  useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
@@ -105,7 +139,7 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
           <div>
             <p className="eyebrow">
               Evidence {citation.citation_id}
-              {citation.page ? ` • Page ${citation.page}` : ""}
+              {citation.page !== null ? ` • Page ${String(citation.page)}` : ""}
               {citation.section ? ` • ${citation.section}` : ""}
             </p>
             <h2 id="source-title">{citation.label}</h2>
@@ -134,7 +168,9 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
                         alt={alt ?? "Architecture diagram"}
                         className="chat-embedded-image"
                         loading="lazy"
-                        onClick={() => setPreviewImage(alt ? { src, alt } : { src })}
+                        onClick={() => {
+                          setPreviewImage(alt ? { src, alt } : { src });
+                        }}
                       />
                       {alt ? <span className="chat-figure-caption">{alt}</span> : null}
                     </span>
@@ -153,13 +189,53 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
         </div>
 
         <div className="source-document">
-          {!source && !error ? (
+          {pagePreviewUrl ? (
+            <div className="source-page-preview-card">
+              <div className="source-page-preview-bar">
+                <span className="source-page-tag">
+                  Page {String(citation.page ?? 1)} Scan • Highlighted
+                </span>
+                <button
+                  type="button"
+                  className="source-expand-btn"
+                  onClick={() => {
+                    setPreviewImage({
+                      src: pagePreviewUrl,
+                      alt: `Page ${String(citation.page ?? 1)} with highlighted citation`,
+                    });
+                  }}
+                  title="Click to expand page in fullscreen"
+                >
+                  <Maximize2 size={13} /> Fullscreen
+                </button>
+              </div>
+              <div
+                className="source-page-img-box"
+                onClick={() => {
+                  setPreviewImage({
+                    src: pagePreviewUrl,
+                    alt: `Page ${String(citation.page ?? 1)} with highlighted citation`,
+                  });
+                }}
+              >
+                <img
+                  src={pagePreviewUrl}
+                  alt={`Page ${String(citation.page ?? 1)} with highlighted citation`}
+                  className="source-page-img"
+                  loading="eager"
+                />
+                <div className="source-page-zoom-hint">Click to enlarge page</div>
+              </div>
+            </div>
+          ) : null}
+
+          {!source && !error && !pagePreviewUrl ? (
             <div className="source-state">
               <LoaderCircle className="spin" size={16} />
               <span>Loading protected source...</span>
             </div>
           ) : null}
-          {error ? (
+          {error && !pagePreviewUrl ? (
             <div className="source-state source-state-error">
               <FileSearch size={16} />
               <span>The protected source could not be opened.</span>
@@ -167,9 +243,13 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
           ) : null}
           {source ? (
             <>
-              <iframe title={citation.label} src={source} className="source-iframe" />
+              <iframe
+                title={citation.label}
+                src={source}
+                className={pagePreviewUrl ? "source-iframe hidden" : "source-iframe"}
+              />
               <a href={source} target="_blank" rel="noreferrer" className="source-open-tab-link">
-                <ExternalLink size={15} /> Open source in a new tab
+                <ExternalLink size={15} /> Open full document in a new tab
               </a>
             </>
           ) : null}
@@ -182,13 +262,22 @@ export function SourceViewer({ citation, accessToken, workspaceId, onClose }: Pr
           role="dialog"
           aria-modal="true"
           aria-label="Enlarged diagram"
-          onClick={() => setPreviewImage(null)}
+          onClick={() => {
+            setPreviewImage(null);
+          }}
         >
-          <div className="chat-lightbox-content" onClick={(event) => event.stopPropagation()}>
+          <div
+            className="chat-lightbox-content"
+            onClick={(event) => {
+              event.stopPropagation();
+            }}
+          >
             <button
               type="button"
               className="chat-lightbox-close"
-              onClick={() => setPreviewImage(null)}
+              onClick={() => {
+                setPreviewImage(null);
+              }}
               aria-label="Close image preview"
             >
               <X size={20} />

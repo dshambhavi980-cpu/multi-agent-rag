@@ -91,7 +91,7 @@ test("opens a source without a page fragment", async () => {
   });
 });
 
-test("renders formatted markdown citation content and opens image lightbox", async () => {
+test("renders formatted markdown citation content and opens image lightbox", () => {
   render(
     <SourceViewer
       citation={{
@@ -114,5 +114,83 @@ test("renders formatted markdown citation content and opens image lightbox", asy
   expect(screen.getByRole("dialog", { name: "Enlarged diagram" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Close image preview" }));
   expect(screen.queryByRole("dialog", { name: "Enlarged diagram" })).not.toBeInTheDocument();
+});
+
+test("loads and displays single page preview with highlight", async () => {
+  Object.defineProperty(globalThis.URL, "createObjectURL", {
+    value: () => "blob:https://signed.example/page-2.png",
+    writable: true,
+    configurable: true,
+  });
+  const blob = new Blob(["fake-image-bytes"], { type: "image/png" });
+  vi.spyOn(globalThis, "fetch").mockImplementation((input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url.includes("/preview")) {
+      return Promise.resolve(new Response(blob, { status: 200 }));
+    }
+    return Promise.resolve(
+      Response.json({
+        url: "https://signed.example/document#page=2",
+        expires_at: "2099-01-01T00:00:00Z",
+      }),
+    );
+  });
+
+  render(
+    <SourceViewer
+      citation={{
+        ...citation,
+        quote: "Review the [system guide](https://example.com/guide) for details.",
+      }}
+      accessToken="token"
+      workspaceId="workspace-1"
+      onClose={vi.fn()}
+    />,
+  );
+
+  expect(await screen.findByText(/Page 2 Scan/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "system guide" })).toBeInTheDocument();
+  const pageImg = screen.getByAltText("Page 2 with highlighted citation");
+  expect(pageImg).toBeInTheDocument();
+  fireEvent.click(pageImg);
+  expect(
+    await screen.findByRole("dialog", { name: "Enlarged diagram" }),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Close image preview" }));
+  fireEvent.click(screen.getByRole("button", { name: /Fullscreen/ }));
+  expect(
+    await screen.findByRole("dialog", { name: "Enlarged diagram" }),
+  ).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("dialog", { name: "Enlarged diagram" }));
+  expect(screen.queryByRole("dialog", { name: "Enlarged diagram" })).not.toBeInTheDocument();
+});
+
+test("handles escape key, backdrop click, dialog propagation, and cached source", () => {
+  const close = vi.fn();
+  const { container } = render(
+    <SourceViewer
+      citation={{
+        ...citation,
+        page: null,
+        section: null,
+        source_url: "https://signed.example/cached-source",
+      }}
+      accessToken="token"
+      workspaceId="workspace-1"
+      onClose={close}
+    />,
+  );
+
+  fireEvent.keyDown(window, { key: "Escape" });
+  expect(close).toHaveBeenCalled();
+
+  const overlay = container.querySelector(".source-overlay");
+  expect(overlay).not.toBeNull();
+  if (overlay) fireEvent.mouseDown(overlay);
+  expect(close).toHaveBeenCalledTimes(2);
+
+  const dialog = screen.getByRole("dialog", { name: "Operations" });
+  fireEvent.mouseDown(dialog);
+  expect(close).toHaveBeenCalledTimes(2);
 });
 

@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+import fitz
 from httpx import AsyncClient
 
 from app.models.auth import AuthenticatedUser, WorkspaceAccess
@@ -113,6 +114,7 @@ class Data:
 class Storage:
     removed: str | None = None
     download_expiry: int | None = None
+    download_payload: bytes = PAYLOAD
 
     async def aclose(self) -> None:
         return None
@@ -125,7 +127,7 @@ class Storage:
     async def download(self, path: str, token: str) -> bytes:
         assert path == PATH
         assert token == "token"
-        return PAYLOAD
+        return self.download_payload
 
     async def create_signed_download(self, path: str, token: str, *, expires_in: int = 60) -> str:
         assert path == PATH
@@ -347,6 +349,95 @@ async def test_only_owner_can_reindex(client: AsyncClient) -> None:
     )
 
     assert response.status_code == 403
+
+
+async def test_get_document_page_preview_success(client: AsyncClient) -> None:
+    configure(client)
+    data = client._transport.app.state.supabase_data  # type: ignore[attr-defined]
+    storage = client._transport.app.state.supabase_storage  # type: ignore[attr-defined]
+
+    # Create a small valid PDF document
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Alex Yu System Design Interview An Insider's Guide. Chapter 1: Scaling Users.")
+    pdf_bytes = doc.tobytes()
+
+    record = document()
+    record["content_type"] = "application/pdf"
+    data.get_document = lambda **kwargs: _async_value(Document.model_validate(record))
+    storage.download_payload = pdf_bytes
+
+    # Test with quote
+    response = await client.get(
+        f"/v1/documents/{DOCUMENT_ID}/pages/1/preview?quote=Scaling+Users",
+        headers=headers(),
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+    # Test without quote
+    response_no_quote = await client.get(
+        f"/v1/documents/{DOCUMENT_ID}/pages/1/preview",
+        headers=headers(),
+    )
+    assert response_no_quote.status_code == 200
+    assert response_no_quote.headers["content-type"] == "image/png"
+
+
+async def test_get_document_page_preview_unsupported_type(client: AsyncClient) -> None:
+    configure(client)
+    data = client._transport.app.state.supabase_data  # type: ignore[attr-defined]
+    record = document()
+    record["content_type"] = "text/plain"
+    data.get_document = lambda **kwargs: _async_value(Document.model_validate(record))
+
+    response = await client.get(
+        f"/v1/documents/{DOCUMENT_ID}/pages/1/preview",
+        headers=headers(),
+    )
+    assert response.status_code == 400
+    assert response.json()["code"] == "UNSUPPORTED_DOCUMENT_TYPE"
+
+
+async def test_get_document_page_preview_page_out_of_range(client: AsyncClient) -> None:
+    configure(client)
+    data = client._transport.app.state.supabase_data  # type: ignore[attr-defined]
+    storage = client._transport.app.state.supabase_storage  # type: ignore[attr-defined]
+
+    doc = fitz.open()
+    doc.new_page()
+    pdf_bytes = doc.tobytes()
+
+    record = document()
+    record["content_type"] = "application/pdf"
+    data.get_document = lambda **kwargs: _async_value(Document.model_validate(record))
+    storage.download_payload = pdf_bytes
+
+    response = await client.get(
+        f"/v1/documents/{DOCUMENT_ID}/pages/99/preview",
+        headers=headers(),
+    )
+    assert response.status_code == 404
+    assert response.json()["code"] == "PAGE_OUT_OF_RANGE"
+
+
+async def test_get_document_page_preview_malformed_pdf(client: AsyncClient) -> None:
+    configure(client)
+    data = client._transport.app.state.supabase_data  # type: ignore[attr-defined]
+    storage = client._transport.app.state.supabase_storage  # type: ignore[attr-defined]
+
+    record = document()
+    record["content_type"] = "application/pdf"
+    data.get_document = lambda **kwargs: _async_value(Document.model_validate(record))
+    storage.download_payload = b"not a real pdf content"
+
+    response = await client.get(
+        f"/v1/documents/{DOCUMENT_ID}/pages/1/preview",
+        headers=headers(),
+    )
+    assert response.status_code == 422
+    assert response.json()["code"] == "MALFORMED_PDF"
 
 
 async def _async_value(value: Any) -> Any:

@@ -1,18 +1,21 @@
 import {
   BookOpenText,
-  Bot,
-  ChartNoAxesCombined,
-  Database,
-  FileStack,
-  Gauge,
-  HeartPulse,
   Menu,
-  MessageSquareText,
   PanelLeftClose,
-  Settings,
-  ShieldCheck,
   X,
 } from "lucide-react";
+import { HugeiconsIcon } from "@hugeicons/react";
+import {
+  Activity01Icon,
+  BotIcon,
+  Comment01Icon,
+  DashboardSquare01Icon,
+  Database01Icon,
+  File02Icon,
+  Settings01Icon,
+  ShieldCheckIcon,
+  StarIcon,
+} from "@hugeicons/core-free-icons";
 import { lazy, Suspense, useEffect, useState } from "react";
 
 import { SelectMenu } from "../components/SelectMenu";
@@ -60,14 +63,14 @@ const SettingsPage = lazy(() =>
 );
 
 const navigation = [
-  { label: "Overview", icon: Gauge, path: "/" },
-  { label: "Chat", icon: MessageSquareText, path: "/chat" },
-  { label: "Documents", icon: FileStack, path: "/documents" },
-  { label: "Agent runs", icon: Bot, path: "/runs" },
-  { label: "Operations", icon: HeartPulse, path: "/operations" },
-  { label: "Review queue", icon: ShieldCheck, path: "/approvals" },
-  { label: "Evaluations", icon: ChartNoAxesCombined, path: "/evaluations" },
-  { label: "Memory", icon: Database, path: "/memory" },
+  { label: "Overview", icon: DashboardSquare01Icon, path: "/" },
+  { label: "Chat", icon: Comment01Icon, path: "/chat" },
+  { label: "Documents", icon: File02Icon, path: "/documents" },
+  { label: "Agent runs", icon: BotIcon, path: "/runs" },
+  { label: "Operations", icon: Activity01Icon, path: "/operations" },
+  { label: "Review queue", icon: ShieldCheckIcon, path: "/approvals" },
+  { label: "Evaluations", icon: StarIcon, path: "/evaluations" },
+  { label: "Memory", icon: Database01Icon, path: "/memory" },
 ];
 
 const routeTitles: Record<string, string> = {
@@ -181,7 +184,7 @@ function AuthenticatedApp() {
               }}
               className={pathname === path ? "nav-link nav-link-active" : "nav-link"}
             >
-              <Icon size={18} aria-hidden="true" />
+              <HugeiconsIcon icon={Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
               <span>{label}</span>
             </a>
           ))}
@@ -200,7 +203,7 @@ function AuthenticatedApp() {
             navigate("/settings");
           }}
         >
-          <Settings size={18} aria-hidden="true" />
+          <HugeiconsIcon icon={Settings01Icon} size={18} strokeWidth={1.8} aria-hidden="true" />
           <span>Settings</span>
         </a>
       </aside>
