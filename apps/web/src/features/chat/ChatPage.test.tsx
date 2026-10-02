@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 
 import { ApiClientError } from "../../api/client";
 import { renderWithProviders } from "../../test/render";
@@ -366,19 +366,19 @@ test("opens conversation search modal, filters items, and selects a thread", asy
   const modal = await screen.findByRole("dialog", { name: "Conversations" });
   expect(modal).toBeInTheDocument();
 
-  const searchInput = screen.getByPlaceholderText("Search conversations by title...");
+  const searchInput = within(modal).getByPlaceholderText("Search conversations by title...");
   fireEvent.change(searchInput, { target: { value: "Emergency" } });
-  expect(screen.getByText("Emergency access")).toBeInTheDocument();
+  expect(within(modal).getByText("Emergency access")).toBeInTheDocument();
 
-  const clearBtn = screen.getByRole("button", { name: "Clear search" });
+  const clearBtn = within(modal).getByRole("button", { name: "Clear search" });
   fireEvent.click(clearBtn);
   expect(searchInput).toHaveValue("");
 
   fireEvent.change(searchInput, { target: { value: "Non-existent thread query" } });
-  expect(screen.getByText(/No conversations matching/)).toBeInTheDocument();
+  expect(within(modal).getByText(/No conversations matching/)).toBeInTheDocument();
 
   fireEvent.change(searchInput, { target: { value: "" } });
-  const itemBtn = screen.getByRole("button", { name: /Emergency access/ });
+  const itemBtn = within(modal).getByRole("button", { name: /Emergency access/ });
   fireEvent.click(itemBtn);
   expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
 
@@ -388,7 +388,7 @@ test("opens conversation search modal, filters items, and selects a thread", asy
   expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
 
   fireEvent.click(convBtn);
-  const newChatInModal = screen.getByRole("button", { name: "New chat" });
+  const newChatInModal = within(modal).getByRole("button", { name: "New chat" });
   fireEvent.click(newChatInModal);
   expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
 });
