@@ -33,12 +33,20 @@ class Admin:
 class Storage:
     def __init__(self, payload: bytes | Exception) -> None:
         self.payload = payload
+        self.uploads: list[tuple[str, bytes, str]] = []
 
     async def download(self, path: str) -> bytes:
         assert path == "one.txt"
         if isinstance(self.payload, Exception):
             raise self.payload
         return self.payload
+
+    async def upload_public(
+        self, path: str, data: bytes, content_type: str = "image/png"
+    ) -> str:
+        self.uploads.append((path, data, content_type))
+        return f"https://example.supabase.co/storage/v1/object/public/document-assets/{path}"
+
 
 
 class Embeddings:
@@ -137,4 +145,39 @@ async def test_uses_cached_content_without_storage_download() -> None:
     names = [call[0] for call in admin.calls]
     assert "complete_document_ingestion" in names
     assert instance.pop_cached_content("one.txt") is None
+
+
+async def test_processes_document_with_figures(monkeypatch: Any) -> None:
+    from app.services.document_parser import ParsedDocument, ParsedFigure, ParsedPage
+
+    admin = Admin()
+    storage = Storage(b"%PDF-mock")
+    inst = worker(admin, storage)
+
+    mock_doc = ParsedDocument(
+        pages=[ParsedPage(page_number=1, content="Page 1 text content here")],
+        chunks=[],
+        figures=[
+            ParsedFigure(
+                figure_id="fig_p1_1",
+                page_number=1,
+                caption="Figure 1 Architecture Overview",
+                image_bytes=b"fake-jpeg-bytes",
+                image_ext="jpeg",
+                width=300,
+                height=200,
+                context_snippet="Overview of the system architecture",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        "app.services.ingestion_worker.parse_document", lambda *args, **kwargs: mock_doc
+    )
+    await inst.process(item("application/pdf"))
+    assert len(storage.uploads) == 1
+    assert "fig_p1_1.jpeg" in storage.uploads[0][0]
+    completed = next(call for call in admin.calls if call[0] == "complete_document_ingestion")
+    assert len(completed[1]["p_chunks"]) == 2
+    assert "### Diagram: Figure 1 Architecture Overview" in completed[1]["p_chunks"][1]["content"]
+
 

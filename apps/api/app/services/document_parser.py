@@ -128,14 +128,19 @@ def _pdf_pages_and_figures(data: bytes) -> tuple[list[ParsedPage], list[ParsedFi
                     ]
                     if figure_candidates:
                         first_line = figure_candidates[0].split("\n")[0].strip()
-                        caption = first_line[:120]
+                        if "." in first_line:
+                            sentence = first_line.split(".")[0].strip()
+                            caption = sentence if len(sentence) >= 10 else first_line[:80].rstrip(".")
+                        else:
+                            caption = first_line[:80].rstrip(".")
                         snippet = figure_candidates[0][:300]
                     else:
                         for b in blocks:
                             if len(b) > 4 and isinstance(b[4], str) and b[4].strip():
                                 lines = [ln.strip() for ln in b[4].split("\n") if ln.strip()]
                                 if lines and len(lines[0]) < 80:
-                                    caption = f"{lines[0]} (Page {page_num})"
+                                    clean_heading = lines[0].rstrip(".")
+                                    caption = f"{clean_heading} (Page {page_num})"
                                     snippet = b[4][:200]
                                     break
 

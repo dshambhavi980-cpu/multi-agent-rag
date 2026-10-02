@@ -45,6 +45,9 @@ testpaths = ["tests"]
 [tool.coverage.run]
 branch = true
 source = ["app"]
+omit = [
+  "app/cli/backfill_diagrams.py",
+]
 
 [tool.coverage.report]
 exclude_also = [

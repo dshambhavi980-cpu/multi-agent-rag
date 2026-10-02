@@ -180,6 +180,49 @@ def test_segment_validation_rejects_unknown_and_uncited_claims() -> None:
     assert (reviewed, accepted, conflict) == (3, 1, False)
     assert remainder == "Partial"
 
+    # Test empty segment and insufficient evidence
+    v_empty, _, _, _, _ = _validate_segments(["", "  "], allowed={"C1"})
+    assert v_empty == []
+    v_insuf, _, r_insuf, _, _ = _validate_segments(["INSUFFICIENT_EVIDENCE"], allowed={"C1"})
+    assert v_insuf == [] and r_insuf == 1
+
+    # Test conflicting evidence prefixes
+    v_conf, _, _, _, is_conf = _validate_segments(
+        ["CONFLICTING_EVIDENCE: Conflicting claim [C1].", "CONFLICTING_EVIDENCE:"],
+        allowed={"C1"},
+    )
+    assert is_conf is True
+    assert v_conf == ["Conflicting claim [C1]."]
+
+    # Test embedded diagram alongside cited claim
+    v_diag, u_diag, _, _, _ = _validate_segments(
+        ["Valid point [C1].", "![Token Bucket Diagram](https://example.com/token.png)"],
+        allowed={"C1"},
+    )
+    assert len(v_diag) == 2
+    assert "C1" in u_diag
+
+
+
+def test_segment_splitting_protects_embedded_diagrams() -> None:
+    text = (
+        "Here is the token bucket system [C1]. "
+        "![Figure 4-6 explains how token refill and rate limiting work. In this](https://example.com/fig.jpeg) [C1]. "
+        "Tokens refill at fixed intervals [C1]."
+    )
+    segments, remainder = _split_complete_segments(text, final=True)
+    assert len(segments) == 3
+    assert "Figure 4-6 explains how token refill and rate limiting work. In this" in segments[1]
+    assert segments[1].startswith("![")
+    assert remainder == ""
+
+    # Streaming with unclosed image tag is retained in buffer
+    stream_buffer = "Tokens refill at fixed intervals [C1]. ![Figure 4-6 explains how refill"
+    stream_segments, stream_remainder = _split_complete_segments(stream_buffer, final=False)
+    assert stream_segments == ["Tokens refill at fixed intervals [C1]."]
+    assert stream_remainder == "![Figure 4-6 explains how refill"
+
+
 
 async def test_product_read_models_use_workspace_scoped_rpcs() -> None:
     admin = Admin()
