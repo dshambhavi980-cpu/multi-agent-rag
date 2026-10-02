@@ -61,10 +61,12 @@ function AnswerContent({
   content,
   citations,
   onCitation,
+  onImageClick,
 }: {
   content: string;
   citations: Citation[];
   onCitation: (citation: Citation) => void;
+  onImageClick?: (image: { src: string; alt?: string }) => void;
 }) {
   const citationMap = new Map(citations.map((citation) => [citation.citation_id, citation]));
   const markdown = content
@@ -81,6 +83,21 @@ function AnswerContent({
           url.startsWith("citation:") ? url : defaultUrlTransform(url)
         }
         components={{
+          img: ({ src, alt }) => {
+            if (!src) return null;
+            return (
+              <span className="chat-figure" role="figure">
+                <img
+                  src={src}
+                  alt={alt ?? "Architecture diagram"}
+                  className="chat-embedded-image"
+                  loading="lazy"
+                  onClick={() => onImageClick?.({ src, alt: alt ?? undefined })}
+                />
+                {alt ? <span className="chat-figure-caption">{alt}</span> : null}
+              </span>
+            );
+          },
           a: ({ href, children }) => {
             const citationId = href?.startsWith("citation:")
               ? href.slice("citation:".length)
@@ -152,6 +169,7 @@ export function ChatPage() {
   const [runState, setRunState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<Citation | null>(null);
+  const [lightbox, setLightbox] = useState<{ src: string; alt?: string } | null>(null);
   const [conversationsOpen, setConversationsOpen] = useState(false);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -426,6 +444,7 @@ export function ChatPage() {
                     content={message.content}
                     citations={message.citations}
                     onCitation={setSource}
+                    onImageClick={setLightbox}
                   />
                 ) : (
                   <p>{message.content}</p>
@@ -454,6 +473,7 @@ export function ChatPage() {
                     content={streamed}
                     citations={streamCitations}
                     onCitation={setSource}
+                    onImageClick={setLightbox}
                   />
                 ) : (
                   <p className="thinking-line">
@@ -559,6 +579,28 @@ export function ChatPage() {
             setSource(null);
           }}
         />
+      ) : null}
+
+      {lightbox ? (
+        <div
+          className="chat-lightbox-overlay"
+          role="dialog"
+          aria-label="Enlarged diagram"
+          onClick={() => setLightbox(null)}
+        >
+          <div className="chat-lightbox-content" onClick={(e) => e.stopPropagation()}>
+            <img src={lightbox.src} alt={lightbox.alt ?? "Diagram"} />
+            {lightbox.alt ? <p className="chat-lightbox-caption">{lightbox.alt}</p> : null}
+            <button
+              type="button"
+              className="chat-lightbox-close"
+              onClick={() => setLightbox(null)}
+              aria-label="Close image preview"
+            >
+              <X size={18} />
+            </button>
+          </div>
+        </div>
       ) : null}
     </section>
   );

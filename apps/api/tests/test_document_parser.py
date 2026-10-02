@@ -70,3 +70,19 @@ def test_rejects_encrypted_pdf() -> None:
     with pytest.raises(DocumentParseError) as exc_info:
         parse_document(payload, "application/pdf")
     assert exc_info.value.code == "ENCRYPTED_PDF"
+
+
+def test_extracts_pdf_figures_with_captions() -> None:
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text((72, 72), "Figure 1-1: High-level system architecture")
+    pix = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 300, 200), 1)
+    pix.clear_with(255)
+    page.insert_image(fitz.Rect(72, 100, 372, 300), pixmap=pix)
+    payload = document.tobytes()
+    document.close()
+
+    parsed = parse_document(payload, "application/pdf")
+    assert len(parsed.figures) == 1
+    assert parsed.figures[0].page_number == 1
+    assert "Figure 1-1" in parsed.figures[0].caption

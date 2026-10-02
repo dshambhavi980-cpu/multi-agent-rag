@@ -425,6 +425,8 @@ class AgentOrchestrator:
             if citations and citations <= allowed:
                 valid.append(segment)
                 used.update(citations)
+            elif segment.startswith("![") and "](" in segment and used:
+                valid.append(segment)
         return valid, used, len(segments)
 
     def _result(self, state: AgentState) -> AgentResult:

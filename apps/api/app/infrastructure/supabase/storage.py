@@ -98,6 +98,30 @@ class SupabaseStorageClient:
         )
         self._raise(response, "The duplicate object could not be removed.")
 
+    async def upload_public(
+        self, path: str, data: bytes, content_type: str = "image/png"
+    ) -> str:
+        if self.service_key is None:
+            raise ApplicationError(
+                "SERVICE_ROLE_NOT_CONFIGURED",
+                "Storage upload unavailable",
+                "APP_SUPABASE_SERVICE_ROLE_KEY is required by the backend.",
+                status=503,
+            )
+        encoded = quote(path, safe="/")
+        response = await self._client.post(
+            f"{self.base_url}/storage/v1/object/document-assets/{encoded}",
+            headers={
+                "apikey": self.service_key,
+                "Authorization": f"Bearer {self.service_key}",
+                "Content-Type": content_type,
+                "x-upsert": "true",
+            },
+            content=data,
+        )
+        self._raise(response, "The document asset could not be uploaded.")
+        return f"{self.base_url}/storage/v1/object/public/document-assets/{encoded}"
+
     @staticmethod
     def _raise(response: httpx.Response, detail: str) -> None:
         if response.is_success:
@@ -128,6 +152,17 @@ class UnavailableStorageClient:
         self, path: str, access_token: str, *, expires_in: int = 60
     ) -> str:
         del path, access_token, expires_in
+        raise ApplicationError(
+            "STORAGE_NOT_CONFIGURED",
+            "Storage unavailable",
+            "Supabase Storage is not configured.",
+            status=503,
+        )
+
+    async def upload_public(
+        self, path: str, data: bytes, content_type: str = "image/png"
+    ) -> str:
+        del path, data, content_type
         raise ApplicationError(
             "STORAGE_NOT_CONFIGURED",
             "Storage unavailable",

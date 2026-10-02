@@ -1,5 +1,5 @@
 import re
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 
 import fitz  # type: ignore[import-untyped]
 from bs4 import BeautifulSoup
@@ -37,9 +37,22 @@ class ParsedChunk:
 
 
 @dataclass(frozen=True)
+class ParsedFigure:
+    figure_id: str
+    page_number: int
+    image_bytes: bytes
+    image_ext: str
+    width: int
+    height: int
+    caption: str
+    context_snippet: str
+
+
+@dataclass(frozen=True)
 class ParsedDocument:
     pages: list[ParsedPage]
     chunks: list[ParsedChunk]
+    figures: list[ParsedFigure] = field(default_factory=list)
 
     def pages_json(self) -> list[dict[str, object]]:
         return [asdict(page) for page in self.pages]
@@ -71,7 +84,7 @@ def _decode(data: bytes) -> str:
         raise DocumentParseError("INVALID_TEXT_ENCODING", "Text must use UTF-8 encoding.") from exc
 
 
-def _pdf_pages(data: bytes) -> list[ParsedPage]:
+def _pdf_pages_and_figures(data: bytes) -> tuple[list[ParsedPage], list[ParsedFigure]]:
     try:
         document = fitz.open(stream=data, filetype="pdf")
     except Exception as exc:
@@ -81,10 +94,68 @@ def _pdf_pages(data: bytes) -> list[ParsedPage]:
             raise DocumentParseError("ENCRYPTED_PDF", "Encrypted PDFs are not supported.")
         if document.page_count > MAX_PAGES:
             raise DocumentParseError("PAGE_LIMIT_EXCEEDED", "The PDF exceeds the 1,000 page limit.")
-        return [
-            ParsedPage(index + 1, _normalize(page.get_text("text")))
-            for index, page in enumerate(document)
-        ]
+
+        pages: list[ParsedPage] = []
+        figures: list[ParsedFigure] = []
+
+        for index, page in enumerate(document):
+            page_num = index + 1
+            text = _normalize(page.get_text("text"))
+            pages.append(ParsedPage(page_num, text))
+
+            try:
+                image_list = page.get_images(full=True)
+                blocks = page.get_text("blocks")
+                for img_idx, img_info in enumerate(image_list):
+                    xref = img_info[0]
+                    base_image = document.extract_image(xref)
+                    w, h = base_image.get("width", 0), base_image.get("height", 0)
+                    if w < 250 or h < 150:
+                        continue
+                    ext = base_image.get("ext", "png")
+                    raw_bytes = base_image.get("image", b"")
+                    if not raw_bytes:
+                        continue
+
+                    caption = f"Figure on Page {page_num}"
+                    snippet = ""
+                    figure_candidates = [
+                        b[4].strip()
+                        for b in blocks
+                        if len(b) > 4
+                        and isinstance(b[4], str)
+                        and ("figure" in b[4].lower() or "diagram" in b[4].lower())
+                    ]
+                    if figure_candidates:
+                        first_line = figure_candidates[0].split("\n")[0].strip()
+                        caption = first_line[:120]
+                        snippet = figure_candidates[0][:300]
+                    else:
+                        for b in blocks:
+                            if len(b) > 4 and isinstance(b[4], str) and b[4].strip():
+                                lines = [ln.strip() for ln in b[4].split("\n") if ln.strip()]
+                                if lines and len(lines[0]) < 80:
+                                    caption = f"{lines[0]} (Page {page_num})"
+                                    snippet = b[4][:200]
+                                    break
+
+                    figure_id = f"fig_p{page_num}_{img_idx + 1}"
+                    figures.append(
+                        ParsedFigure(
+                            figure_id=figure_id,
+                            page_number=page_num,
+                            image_bytes=raw_bytes,
+                            image_ext=ext,
+                            width=w,
+                            height=h,
+                            caption=caption,
+                            context_snippet=snippet or caption,
+                        )
+                    )
+            except Exception:
+                continue
+
+        return pages, figures
     except DocumentParseError:
         raise
     except Exception as exc:
@@ -148,11 +219,13 @@ def _chunks(pages: list[ParsedPage]) -> list[ParsedChunk]:
 def parse_document(data: bytes, content_type: ContentType) -> ParsedDocument:
     if not data:
         raise DocumentParseError("EMPTY_DOCUMENT", "The document is empty.")
-    pages = (
-        _pdf_pages(data) if content_type == "application/pdf" else _text_pages(data, content_type)
-    )
+    if content_type == "application/pdf":
+        pages, figures = _pdf_pages_and_figures(data)
+    else:
+        pages = _text_pages(data, content_type)
+        figures = []
     if not any(page.content for page in pages):
         raise DocumentParseError(
             "NO_EXTRACTABLE_TEXT", "The document contains no extractable text."
         )
-    return ParsedDocument(pages=pages, chunks=_chunks(pages))
+    return ParsedDocument(pages=pages, chunks=_chunks(pages), figures=figures)
