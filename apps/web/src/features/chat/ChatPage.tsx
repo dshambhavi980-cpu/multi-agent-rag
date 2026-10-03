@@ -474,18 +474,26 @@ export function ChatPage() {
       }
       try {
         const rec = new SpeechRec();
+        let resolved = false;
         rec.continuous = false;
         rec.interimResults = false;
         rec.lang = "en-US";
         rec.onresult = (e: SpeechRecognitionEvent) => {
           const t = e.results?.[0]?.[0]?.transcript ?? "";
+          resolved = true;
           resolve(t);
         };
         rec.onerror = () => {
-          resolve("");
+          if (!resolved) {
+            resolved = true;
+            resolve("");
+          }
         };
         rec.onend = () => {
-          resolve("");
+          if (!resolved) {
+            resolved = true;
+            resolve("");
+          }
         };
         rec.start();
       } catch {
