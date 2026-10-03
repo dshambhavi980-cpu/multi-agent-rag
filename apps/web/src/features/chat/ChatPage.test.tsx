@@ -35,6 +35,10 @@ vi.mock("../auth/auth-context", () => ({
 vi.mock("../workspaces/workspace-context", () => ({
   useWorkspace: () => ({ activeWorkspace: { id: "workspace-1" } }),
 }));
+vi.mock("../../lib/supabase", () => ({
+  supabase: null,
+  getFreshAccessToken: (fallback?: string | null) => Promise.resolve(fallback ?? "token"),
+}));
 
 const conversation = {
   id: "conversation-1",
@@ -461,6 +465,47 @@ test("persists active conversation in sessionStorage across navigation", async (
     "conversation-1",
   );
 });
+
+test("displays session expired friendly message and refresh button on 401 error", async () => {
+  mocks.requestJson.mockImplementation((path: string, options?: RequestInit) => {
+    if (path === "/v1/conversations" && options?.method === "POST") {
+      return Promise.reject(new ApiClientError("A bearer access token is required.", 401));
+    }
+    if (path === "/v1/conversations/conversation-1/messages" && options?.method === "POST") {
+      return Promise.reject(new ApiClientError("A bearer access token is required.", 401));
+    }
+    if (path === "/v1/conversations") {
+      return Promise.resolve({ items: [conversation], next_cursor: null });
+    }
+    if (path === "/v1/conversations/conversation-1") {
+      return Promise.resolve({
+        ...conversation,
+        messages: [],
+      });
+    }
+    if (path === "/v1/documents") {
+      return Promise.resolve({ items: [] });
+    }
+    return Promise.resolve({});
+  });
+
+  renderWithProviders(<ChatPage />);
+  await screen.findAllByText("Emergency access");
+
+  const promptInput = screen.getByRole("textbox", { name: "Prompt" });
+  fireEvent.change(promptInput, { target: { value: "what is a rate limiter ?" } });
+
+  const sendBtn = screen.getByRole("button", { name: "Send" });
+  fireEvent.click(sendBtn);
+
+  await waitFor(() => {
+    expect(
+      screen.getByText("Your session has expired. Please refresh the page to reconnect."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Refresh page" })).toBeInTheDocument();
+  });
+});
+
 
 
 

@@ -46,6 +46,7 @@ import { useAuth } from "../auth/auth-context";
 import { useTheme } from "../theme/theme-context";
 import type { DocumentPage } from "../documents/documents.types";
 import { useWorkspace } from "../workspaces/workspace-context";
+import { getFreshAccessToken } from "../../lib/supabase";
 import { SourceViewer } from "./SourceViewer";
 import { formatAgentStep, formatConversationDisplay, normalizeMarkdownContent } from "./chat.utils";
 import type {
@@ -61,13 +62,23 @@ type Mode = "auto" | "simple" | "agentic";
 
 function friendlyError(error: unknown): string {
   if (error instanceof ApiClientError) {
+    if (error.status === 401) return "Your session has expired. Please refresh the page to reconnect.";
     if (error.status === 429) return "This workspace is at its run limit. Wait a moment and retry.";
     if (error.status === 503) return "The free API is waking up. Retry in about thirty seconds.";
     if (error.status === 504) return "The answer exceeded its time limit. Try a narrower question.";
+    if (error.message.toLowerCase().includes("bearer") || error.message.toLowerCase().includes("token")) {
+      return "Your session has expired. Please refresh the page to reconnect.";
+    }
     return error.message;
+  }
+  if (error instanceof Error) {
+    if (error.message.toLowerCase().includes("bearer") || error.message.toLowerCase().includes("token")) {
+      return "Your session has expired. Please refresh the page to reconnect.";
+    }
   }
   return "The answer stream was interrupted. Your conversation is still saved.";
 }
+
 
 
 function AnswerContent({
@@ -224,6 +235,7 @@ export function ChatPage() {
     "X-Workspace-ID": workspaceId ?? "",
   };
 
+
   useEffect(() => {
     if (!conversationsOpen && !conversationToDelete) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -361,6 +373,7 @@ export function ChatPage() {
     },
   });
 
+
   const executeDelete = (targetId: string) => {
     // 1. Optimistic removal from cache - disappears instantly in 0ms!
     queryClient.setQueryData<ConversationPage>(["conversations", workspaceId], (old) => {
@@ -458,7 +471,16 @@ export function ChatPage() {
     }
     if (event.event_type === "run.failed") {
       setRunState("Failed");
-      if (typeof event.detail === "string") setError(event.detail);
+      if (typeof event.detail === "string") {
+        if (
+          event.detail.toLowerCase().includes("bearer") ||
+          event.detail.toLowerCase().includes("token")
+        ) {
+          setError("Your session has expired. Please refresh the page to reconnect.");
+        } else {
+          setError(event.detail);
+        }
+      }
     }
   };
 
@@ -469,7 +491,7 @@ export function ChatPage() {
   ) => {
     if (event) event.preventDefault();
     const content = (customText ?? question).trim();
-    if (!content || !session || !workspaceId || !online || sending || awaitingReview) return;
+    if (!content || !workspaceId || !online || sending || awaitingReview) return;
     const activeMode = (detail?.model?.key as Mode | undefined) ?? mode;
     setSending(true);
     setError(null);
@@ -486,36 +508,101 @@ export function ChatPage() {
     setAgentSteps([]);
     setQuestion("");
     try {
+      let token = await getFreshAccessToken(session?.access_token);
+      if (!token) {
+        setError("Your session has expired. Please refresh the page to reconnect.");
+        return;
+      }
+
       let conversationId = activeId;
       if (!conversationId || selectedId === "new") {
-        const created = await requestJson<Conversation>("/v1/conversations", {
-          method: "POST",
-          headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
-          body: JSON.stringify({ title: content.slice(0, 80) }),
-          signal: controller.signal,
-        });
+        const createConv = async (authToken: string) => {
+          return await requestJson<Conversation>("/v1/conversations", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "X-Workspace-ID": workspaceId ?? "",
+              "Idempotency-Key": crypto.randomUUID(),
+            },
+            body: JSON.stringify({ title: content.slice(0, 80) }),
+            signal: controller.signal,
+          });
+        };
+
+        let created: Conversation;
+        try {
+          created = await createConv(token);
+        } catch (err) {
+          if (err instanceof ApiClientError && err.status === 401) {
+            const fresh = await getFreshAccessToken();
+            if (fresh) {
+              token = fresh;
+              created = await createConv(token);
+            } else {
+              throw err;
+            }
+          } else {
+            throw err;
+          }
+        }
+
         conversationId = created.id;
         setSelectedId(created.id);
         if (storageKey) {
           window.sessionStorage.setItem(storageKey, created.id);
         }
       }
-      const accepted = await requestJson<RunAccepted>(
-        `/v1/conversations/${conversationId}/messages`,
-        {
-          method: "POST",
-          headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
-          body: JSON.stringify({
-            content,
-            document_ids: selectedDocuments.length ? selectedDocuments : null,
-            force_mode: activeMode,
-          }),
-          signal: controller.signal,
-        },
-      );
+
+      const postMsg = async (authToken: string) => {
+        return await requestJson<RunAccepted>(
+          `/v1/conversations/${conversationId}/messages`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${authToken}`,
+              "X-Workspace-ID": workspaceId ?? "",
+              "Idempotency-Key": crypto.randomUUID(),
+            },
+            body: JSON.stringify({
+              content,
+              document_ids: selectedDocuments.length ? selectedDocuments : null,
+              force_mode: activeMode,
+            }),
+            signal: controller.signal,
+          },
+        );
+      };
+
+      let accepted: RunAccepted;
+      try {
+        accepted = await postMsg(token);
+      } catch (err) {
+        if (err instanceof ApiClientError && err.status === 401) {
+          const fresh = await getFreshAccessToken();
+          if (fresh) {
+            token = fresh;
+            accepted = await postMsg(token);
+          } else {
+            throw err;
+          }
+        } else {
+          throw err;
+        }
+      }
+
       currentRunIdRef.current = accepted.run_id;
       setRunState(accepted.status);
-      await streamSse(accepted.events_url, { ...headers, signal: controller.signal }, handleEvent);
+      await streamSse(
+        accepted.events_url,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "X-Workspace-ID": workspaceId ?? "",
+          },
+          signal: controller.signal,
+        },
+        handleEvent,
+      );
 
       // Drain remaining buffered stream smoothly so all words finish revealing
       while (displayedStreamedRef.current.length < fullStreamedRef.current.length) {
@@ -814,6 +901,15 @@ export function ChatPage() {
               <div className="inline-notice notice-error" role="alert">
                 <HugeiconsIcon icon={Alert01Icon} size={18} strokeWidth={1.8} />
                 <span>{error}</span>
+                {error.includes("session") || error.includes("reconnect") ? (
+                  <button
+                    type="button"
+                    className="ml-2 underline font-medium text-xs hover:opacity-80 cursor-pointer"
+                    onClick={() => window.location.reload()}
+                  >
+                    Refresh page
+                  </button>
+                ) : null}
               </div>
             ) : null}
           </div>
