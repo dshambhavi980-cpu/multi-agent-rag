@@ -12,7 +12,6 @@ import {
   Settings01Icon,
   ShieldCheckIcon,
   SidebarLeftIcon,
-  StarIcon,
 } from "@hugeicons/core-free-icons";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { motion } from "motion/react";
@@ -35,11 +34,6 @@ const ChatPage = lazy(() =>
 const DocumentsPage = lazy(() =>
   import("../features/documents/DocumentsPage").then((module) => ({
     default: module.DocumentsPage,
-  })),
-);
-const EvaluationsPage = lazy(() =>
-  import("../features/evaluations/EvaluationsPage").then((module) => ({
-    default: module.EvaluationsPage,
   })),
 );
 const MemoryPage = lazy(() =>
@@ -68,7 +62,6 @@ const navigation = [
   { label: "Agent runs", icon: BotIcon, path: "/runs" },
   { label: "Operations", icon: Activity01Icon, path: "/operations" },
   { label: "Review queue", icon: ShieldCheckIcon, path: "/approvals" },
-  { label: "Evaluations", icon: StarIcon, path: "/evaluations" },
   { label: "Memory", icon: Database01Icon, path: "/memory" },
 ];
 
@@ -78,7 +71,6 @@ const routeTitles: Record<string, string> = {
   "/runs": "Agent runs",
   "/operations": "Operations",
   "/approvals": "Review queue",
-  "/evaluations": "Evaluations",
   "/memory": "Memory",
   "/settings": "Settings",
 };
@@ -126,7 +118,6 @@ function AuthenticatedApp() {
     pathname === "/runs" ? <RunsPage /> :
     pathname === "/operations" ? <ObservabilityPage /> :
     pathname === "/approvals" ? <ApprovalsPage /> :
-    pathname === "/evaluations" ? <EvaluationsPage /> :
     pathname === "/memory" ? <MemoryPage /> :
     pathname === "/settings" ? <SettingsPage /> :
     <Placeholder title={routeTitles[pathname] ?? "Not found"} />;

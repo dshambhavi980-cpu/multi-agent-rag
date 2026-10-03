@@ -76,7 +76,6 @@ test("lazy-loads every operational section", async () => {
     "Agent runs",
     "Operations",
     "Review queue",
-    "Evaluations",
     "Memory",
     "Settings",
   ]) {
