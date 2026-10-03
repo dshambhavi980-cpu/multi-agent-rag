@@ -108,6 +108,11 @@ class Rag:
             ],
         )
 
+    async def delete_conversation(self, **kwargs: Any) -> None:
+        assert kwargs["conversation_id"] == CONVERSATION_ID
+        assert kwargs["workspace_id"] == WORKSPACE_ID
+        assert kwargs["actor_id"] == USER_ID
+
     async def start_run(self, **kwargs: Any) -> RunAccepted:
         del kwargs
         return RunAccepted(
@@ -242,6 +247,9 @@ async def test_conversation_and_run_routes(client: AsyncClient) -> None:
         mode="json"
     )
     assert resumed.json() == OperationAccepted(id=RUN_ID, status="running").model_dump(mode="json")
+
+    deleted = await client.delete(f"/v1/conversations/{CONVERSATION_ID}", headers=headers())
+    assert deleted.status_code == 204
 
 
 async def test_sse_replays_durable_events_and_requires_idempotency(client: AsyncClient) -> None:

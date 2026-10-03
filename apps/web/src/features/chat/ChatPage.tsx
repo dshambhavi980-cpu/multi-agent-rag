@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
   Alert01Icon,
@@ -7,6 +7,7 @@ import {
   Cancel01Icon,
   Clock01Icon,
   CommentAdd01Icon,
+  Delete02Icon,
   File02Icon,
   Loading03Icon,
   Search01Icon,
@@ -177,7 +178,14 @@ export function ChatPage() {
   const queryClient = useQueryClient();
   const online = useOnlineStatus();
   const workspaceId = activeWorkspace?.id;
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const storageKey = workspaceId ? `docpilot:active_conversation:${workspaceId}` : null;
+  const [selectedId, setSelectedId] = useState<string | null>(() => {
+    if (typeof window === "undefined" || !workspaceId) return null;
+    return window.sessionStorage.getItem(`docpilot:active_conversation:${workspaceId}`);
+  });
+  const [swipedId, setSwipedId] = useState<string | null>(null);
+  const touchStartXRef = useRef<number | null>(null);
+  const mouseStartXRef = useRef<number | null>(null);
   const [question, setQuestion] = useState("");
   const [mode, setMode] = useState<Mode>("auto");
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
@@ -267,11 +275,30 @@ export function ChatPage() {
     composer.style.overflowY = composer.scrollHeight > 176 ? "auto" : "hidden";
   }, [question]);
 
+  useEffect(() => {
+    if (!storageKey) return;
+    const saved = window.sessionStorage.getItem(storageKey);
+    if (saved && saved !== selectedId) {
+      setSelectedId(saved);
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!storageKey) return;
+    if (selectedId) {
+      window.sessionStorage.setItem(storageKey, selectedId);
+    } else {
+      window.sessionStorage.removeItem(storageKey);
+    }
+  }, [storageKey, selectedId]);
+
   const conversations = useQuery({
     queryKey: ["conversations", workspaceId],
     enabled: Boolean(session && workspaceId),
     queryFn: () =>
       requestJson<ConversationPage>("/v1/conversations", { headers }),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
   const filteredConversations = useMemo(() => {
     const items = conversations.data?.items ?? [];
@@ -285,8 +312,17 @@ export function ChatPage() {
     selectedId === "new"
       ? null
       : (conversations.data?.items.find((item) => item.id === selectedId)?.id ??
+        (selectedId && !conversations.isFetched ? selectedId : null) ??
         conversations.data?.items[0]?.id ??
         null);
+
+  useEffect(() => {
+    if (activeId && !selectedId && storageKey) {
+      setSelectedId(activeId);
+      window.sessionStorage.setItem(storageKey, activeId);
+    }
+  }, [activeId, selectedId, storageKey]);
+
   const detail = useQuery({
     queryKey: ["conversation", workspaceId, activeId],
     enabled: Boolean(session && workspaceId && activeId),
@@ -294,19 +330,46 @@ export function ChatPage() {
       requestJson<ConversationDetail>(`/v1/conversations/${activeId ?? ""}`, {
         headers,
       }),
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
   const documents = useQuery({
     queryKey: ["documents", workspaceId],
     enabled: Boolean(session && workspaceId),
     queryFn: () => requestJson<DocumentPage>("/v1/documents", { headers }),
+    staleTime: 5 * 60 * 1000,
   });
   const readyDocuments = useMemo(
     () => documents.data?.items.filter((document) => document.status === "ready") ?? [],
     [documents.data?.items],
   );
 
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (convId: string) => {
+      await requestJson(`/v1/conversations/${convId}`, {
+        method: "DELETE",
+        headers,
+      });
+      return convId;
+    },
+    onSuccess: (deletedId) => {
+      void queryClient.invalidateQueries({ queryKey: ["conversations", workspaceId] });
+      queryClient.removeQueries({ queryKey: ["conversation", workspaceId, deletedId] });
+      if (activeId === deletedId || selectedId === deletedId) {
+        resetDraft();
+        if (storageKey) {
+          window.sessionStorage.removeItem(storageKey);
+        }
+      }
+      setSwipedId(null);
+    },
+  });
+
   const resetDraft = () => {
     setSelectedId("new");
+    if (storageKey) {
+      window.sessionStorage.setItem(storageKey, "new");
+    }
     setQuestion("");
     setStreamed("");
     fullStreamedRef.current = "";
@@ -378,6 +441,9 @@ export function ChatPage() {
         });
         conversationId = created.id;
         setSelectedId(created.id);
+        if (storageKey) {
+          window.sessionStorage.setItem(storageKey, created.id);
+        }
       }
       const accepted = await requestJson<RunAccepted>(
         `/v1/conversations/${conversationId}/messages`,
@@ -582,7 +648,7 @@ export function ChatPage() {
       <div className="chat-workspace">
         <div className="chat-thread">
           <div className="message-scroll" ref={scrollRef} aria-live="polite" aria-busy={sending}>
-            {!messages.length && !pendingQuestion ? (
+            {!messages.length && !pendingQuestion && !detail.isLoading ? (
               <div className="chat-empty">
                 <HugeiconsIcon icon={BotIcon} size={26} strokeWidth={1.8} />
                 <h2>Ask from your indexed documents</h2>
@@ -668,11 +734,7 @@ export function ChatPage() {
                     onImageClick={setLightbox}
                     isStreaming={sending}
                   />
-                ) : mode !== "simple" ? (
-                  <p className="thinking-line">
-                    <HugeiconsIcon icon={Loading03Icon} className="spin" size={16} strokeWidth={1.8} /> Retrieving evidence...
-                  </p>
-                ) : (
+                ) : mode !== "simple" ? null : (
                   <div className="flex items-center gap-2 py-1.5 text-xs text-muted-foreground">
                     <HugeiconsIcon icon={Loading03Icon} className="spin" size={15} strokeWidth={2} />
                     <span>Generating answer...</span>
@@ -921,52 +983,131 @@ export function ChatPage() {
               {filteredConversations.length > 0 ? (
                 filteredConversations.map((conversation) => {
                   const isActive = activeId === conversation.id;
+                  const isSwiped = swipedId === conversation.id;
                   return (
-                    <button
-                      key={conversation.id}
-                      type="button"
-                      className={`conversation-modal-item ${isActive ? "active" : ""}`}
-                      onClick={() => {
-                        setSelectedId(conversation.id);
-                        setPendingQuestion(null);
-                        setStreamed("");
-                        fullStreamedRef.current = "";
-                        displayedStreamedRef.current = "";
-                        setError(null);
-                        setConversationsOpen(false);
-                      }}
-                    >
-                      <div className="conversation-modal-item-content">
-                        <div className="flex items-center gap-2">
-                          <span className="conversation-modal-item-title">
-                            {(() => {
-                              const display = formatConversationDisplay(conversation.title);
-                              return display.docName
-                                ? `${display.title} — ${display.docName}`
-                                : display.title;
-                            })()}
-                          </span>
-                          {isActive ? (
-                            <span className="conversation-modal-item-badge">Active</span>
-                          ) : null}
-                        </div>
-                        <span className="conversation-modal-item-date">
-                          {new Date(
-                            conversation.updated_at || conversation.created_at,
-                          ).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
-                        </span>
+                    <div key={conversation.id} className="conversation-item-wrapper">
+                      <div className="conversation-delete-action">
+                        <button
+                          type="button"
+                          className="conversation-delete-btn"
+                          aria-label="Confirm delete conversation"
+                          disabled={deleteConversationMutation.isPending}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteConversationMutation.mutate(conversation.id);
+                          }}
+                        >
+                          <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={2} />
+                          <span>Delete</span>
+                        </button>
                       </div>
-                      <HugeiconsIcon
-                        icon={ArrowRight01Icon}
-                        size={16}
-                        strokeWidth={2}
-                        className="conversation-modal-item-arrow"
-                      />
-                    </button>
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        className={`conversation-modal-item ${isActive ? "active" : ""} ${isSwiped ? "swiped" : ""}`}
+                        onTouchStart={(e) => {
+                          touchStartXRef.current = e.touches[0]?.clientX ?? null;
+                        }}
+                        onTouchEnd={(e) => {
+                          const touch = e.changedTouches[0];
+                          if (touchStartXRef.current !== null && touch) {
+                            const diff = touchStartXRef.current - touch.clientX;
+                            if (diff > 35) setSwipedId(conversation.id);
+                            else if (diff < -35) setSwipedId(null);
+                            touchStartXRef.current = null;
+                          }
+                        }}
+                        onMouseDown={(e) => {
+                          mouseStartXRef.current = e.clientX;
+                        }}
+                        onMouseUp={(e) => {
+                          if (mouseStartXRef.current !== null) {
+                            const diff = mouseStartXRef.current - e.clientX;
+                            if (diff > 45) setSwipedId(conversation.id);
+                            else if (diff < -45) setSwipedId(null);
+                            mouseStartXRef.current = null;
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            if (isSwiped) {
+                              setSwipedId(null);
+                              return;
+                            }
+                            setSelectedId(conversation.id);
+                            if (storageKey) {
+                              window.sessionStorage.setItem(storageKey, conversation.id);
+                            }
+                            setPendingQuestion(null);
+                            setStreamed("");
+                            fullStreamedRef.current = "";
+                            displayedStreamedRef.current = "";
+                            setError(null);
+                            setConversationsOpen(false);
+                          }
+                        }}
+                        onClick={() => {
+                          if (isSwiped) {
+                            setSwipedId(null);
+                            return;
+                          }
+                          setSelectedId(conversation.id);
+                          if (storageKey) {
+                            window.sessionStorage.setItem(storageKey, conversation.id);
+                          }
+                          setPendingQuestion(null);
+                          setStreamed("");
+                          fullStreamedRef.current = "";
+                          displayedStreamedRef.current = "";
+                          setError(null);
+                          setConversationsOpen(false);
+                        }}
+                      >
+                        <div className="conversation-modal-item-content">
+                          <div className="flex items-center gap-2">
+                            <span className="conversation-modal-item-title">
+                              {(() => {
+                                const display = formatConversationDisplay(conversation.title);
+                                return display.docName
+                                  ? `${display.title} — ${display.docName}`
+                                  : display.title;
+                              })()}
+                            </span>
+                            {isActive ? (
+                              <span className="conversation-modal-item-badge">Active</span>
+                            ) : null}
+                          </div>
+                          <span className="conversation-modal-item-date">
+                            {new Date(
+                              conversation.updated_at || conversation.created_at,
+                            ).toLocaleDateString(undefined, {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          className="conversation-slide-trigger"
+                          aria-label="Slide to delete"
+                          title="Slide to delete"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSwipedId((curr) => (curr === conversation.id ? null : conversation.id));
+                          }}
+                        >
+                          <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.8} />
+                        </button>
+                        <HugeiconsIcon
+                          icon={ArrowRight01Icon}
+                          size={16}
+                          strokeWidth={2}
+                          className="conversation-modal-item-arrow"
+                        />
+                      </div>
+                    </div>
                   );
                 })
               ) : conversations.isFetching ? (

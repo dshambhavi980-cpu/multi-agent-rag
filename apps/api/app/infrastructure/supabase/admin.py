@@ -8,8 +8,10 @@ from app.core.logging import get_logger
 
 class SupabaseAdminClient:
     def __init__(self, *, supabase_url: str, service_key: str, timeout_seconds: float) -> None:
+        self._supabase_url = supabase_url.rstrip("/")
+        self._service_key = service_key
         self._client = httpx.AsyncClient(
-            base_url=f"{supabase_url.rstrip('/')}/rest/v1/rpc",
+            base_url=f"{self._supabase_url}/rest/v1/rpc",
             headers={
                 "apikey": service_key,
                 "Authorization": f"Bearer {service_key}",
@@ -20,6 +22,34 @@ class SupabaseAdminClient:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    async def table_delete(
+        self,
+        table: str,
+        params: dict[str, str],
+        *,
+        request_timeout: float | httpx.Timeout | None = None,
+    ) -> None:
+        try:
+            kwargs: dict[str, Any] = {}
+            if request_timeout is not None:
+                kwargs["timeout"] = request_timeout
+            url = f"{self._supabase_url}/rest/v1/{table}"
+            response = await self._client.delete(url, params=params, **kwargs)
+            if not response.is_success:
+                body = response.json() if response.content else {}
+                get_logger().warning(
+                    "supabase_admin_table_delete_failed",
+                    table=table,
+                    status=response.status_code,
+                    body=body,
+                )
+        except Exception as exc:
+            get_logger().warning(
+                "supabase_admin_table_delete_exception",
+                table=table,
+                error=str(exc),
+            )
 
     async def rpc(
         self,
@@ -100,6 +130,21 @@ class UnavailableAdminClient:
         raise ApplicationError(
             "SERVICE_ROLE_NOT_CONFIGURED",
             "Document ingestion unavailable",
+            "APP_SUPABASE_SERVICE_ROLE_KEY is required by the backend.",
+            status=503,
+        )
+
+    async def table_delete(
+        self,
+        table: str,
+        params: dict[str, str],
+        *,
+        request_timeout: float | httpx.Timeout | None = None,
+    ) -> None:
+        del table, params, request_timeout
+        raise ApplicationError(
+            "SERVICE_ROLE_NOT_CONFIGURED",
+            "Database operation unavailable",
             "APP_SUPABASE_SERVICE_ROLE_KEY is required by the backend.",
             status=503,
         )

@@ -5,7 +5,7 @@ from time import monotonic
 from typing import Annotated, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Header, Query, Request
+from fastapi import APIRouter, Body, Depends, Header, Query, Request, Response, status
 from fastapi.responses import StreamingResponse
 
 from app.api.dependencies import AuthContext, get_auth_context, require_workspace_access
@@ -102,6 +102,27 @@ async def get_conversation(
         actor_id=auth.user.id,
         conversation_id=conversation_id,
     )
+
+
+@router.delete(
+    "/conversations/{conversation_id}",
+    operation_id="deleteConversation",
+    status_code=204,
+)
+async def delete_conversation(
+    conversation_id: UUID,
+    request: Request,
+    workspace_id: WorkspaceHeader,
+    auth: AuthDependency,
+) -> Response:
+    await require_workspace_access(workspace_id, request, auth)
+    service = cast(GroundedRagService, request.app.state.rag)
+    await service.delete_conversation(
+        workspace_id=workspace_id,
+        actor_id=auth.user.id,
+        conversation_id=conversation_id,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post(

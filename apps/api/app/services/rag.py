@@ -248,6 +248,50 @@ class GroundedRagService:
             )
         )
 
+    async def delete_conversation(
+        self, *, workspace_id: UUID, actor_id: UUID, conversation_id: UUID
+    ) -> None:
+        await self.get_conversation(
+            workspace_id=workspace_id,
+            actor_id=actor_id,
+            conversation_id=conversation_id,
+        )
+        try:
+            await self.admin.rpc(
+                "delete_conversation",
+                {
+                    "p_workspace_id": str(workspace_id),
+                    "p_actor_id": str(actor_id),
+                    "p_conversation_id": str(conversation_id),
+                },
+            )
+            return
+        except ApplicationError as err:
+            if err.status == 404 and "delete_conversation" not in err.message:
+                raise
+            get_logger().info(
+                "delete_conversation_rpc_fallback",
+                conversation_id=str(conversation_id),
+                reason=err.message,
+            )
+
+        await self.admin.table_delete(
+            "rag_runs",
+            {"conversation_id": f"eq.{conversation_id}", "workspace_id": f"eq.{workspace_id}"},
+        )
+        await self.admin.table_delete(
+            "messages",
+            {"conversation_id": f"eq.{conversation_id}", "workspace_id": f"eq.{workspace_id}"},
+        )
+        await self.admin.table_delete(
+            "conversations",
+            {
+                "id": f"eq.{conversation_id}",
+                "workspace_id": f"eq.{workspace_id}",
+                "owner_id": f"eq.{actor_id}",
+            },
+        )
+
     async def start_run(  # noqa: PLR0913
         self,
         *,

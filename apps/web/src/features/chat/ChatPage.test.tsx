@@ -57,6 +57,7 @@ const citation = {
 };
 
 beforeEach(() => {
+  window.sessionStorage.clear();
   mocks.online = true;
   mocks.requestJson.mockReset();
   mocks.streamSse.mockReset();
@@ -393,4 +394,48 @@ test("opens conversation search modal, filters items, and selects a thread", asy
   fireEvent.click(newChatInModal);
   expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
 });
+
+test("supports sliding left on a conversation to reveal and trigger deletion", async () => {
+  renderWithProviders(<ChatPage />);
+  await screen.findAllByText("Emergency access");
+
+  const convBtn = screen.getByRole("button", { name: "Conversations" });
+  fireEvent.click(convBtn);
+
+  const modal = await screen.findByRole("dialog", { name: "Conversations" });
+  expect(modal).toBeInTheDocument();
+
+  const slideTrigger = within(modal).getByRole("button", { name: "Slide to delete" });
+  fireEvent.click(slideTrigger);
+
+  const deleteBtn = within(modal).getByRole("button", { name: "Confirm delete conversation" });
+  expect(deleteBtn).toBeInTheDocument();
+
+  fireEvent.click(deleteBtn);
+
+  await waitFor(() => {
+    expect(mocks.requestJson).toHaveBeenCalledWith(
+      "/v1/conversations/conversation-1",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
+});
+
+test("persists active conversation in sessionStorage across navigation", async () => {
+  const { unmount } = renderWithProviders(<ChatPage />);
+  await screen.findAllByText("Emergency access");
+
+  expect(window.sessionStorage.getItem("docpilot:active_conversation:workspace-1")).toBe(
+    "conversation-1",
+  );
+
+  unmount();
+
+  renderWithProviders(<ChatPage />);
+  await screen.findAllByText("Emergency access");
+  expect(window.sessionStorage.getItem("docpilot:active_conversation:workspace-1")).toBe(
+    "conversation-1",
+  );
+});
+
 

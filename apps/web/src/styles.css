@@ -5323,29 +5323,37 @@ html.dark .conversation-modal-new-btn:hover {
   align-items: center;
   gap: 10px;
   padding: 12px 18px;
-  border-bottom: 1px solid #f4f4f5;
-  background: #fafafa;
+  border-bottom: 1px solid #e4e4e7;
+  background: transparent;
 }
 
 html.dark .conversation-modal-search {
-  background: #141416;
+  background: transparent;
   border-bottom-color: #27272a;
 }
 
-.conversation-search-input {
+.conversation-modal-search svg {
+  color: #71717a;
+  flex-shrink: 0;
+}
+
+.conversation-modal-search .conversation-search-input,
+html.dark .conversation-modal-search .conversation-search-input {
   flex: 1;
-  border: none;
-  background: transparent;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 6px 0;
   font-size: 13px;
   color: #09090b;
-  outline: none;
+  outline: none !important;
 }
 
-html.dark .conversation-search-input {
-  color: #fafafa;
+html.dark .conversation-modal-search .conversation-search-input {
+  color: #fafafa !important;
 }
 
-.conversation-search-input::placeholder {
+.conversation-modal-search .conversation-search-input::placeholder {
   color: #71717a;
 }
 
@@ -5376,10 +5384,53 @@ html.dark .conversation-search-clear:hover {
   padding: 8px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
+}
+
+.conversation-item-wrapper {
+  position: relative;
+  width: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #dc2626;
+}
+
+.conversation-delete-action {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #dc2626;
+  z-index: 1;
+}
+
+.conversation-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.conversation-delete-btn:hover {
+  background: #b91c1c;
 }
 
 .conversation-modal-item {
+  position: relative;
+  z-index: 2;
   width: 100%;
   display: flex;
   align-items: center;
@@ -5387,10 +5438,19 @@ html.dark .conversation-search-clear:hover {
   padding: 10px 14px;
   border-radius: 8px;
   border: 1px solid transparent;
-  background: transparent;
+  background: #ffffff;
   cursor: pointer;
   text-align: left;
-  transition: all 140ms ease;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.15s ease, border-color 0.15s ease;
+  will-change: transform;
+}
+
+html.dark .conversation-modal-item {
+  background: #18181b;
+}
+
+.conversation-modal-item.swiped {
+  transform: translateX(-80px);
 }
 
 .conversation-modal-item:hover {
@@ -5399,18 +5459,43 @@ html.dark .conversation-search-clear:hover {
 }
 
 html.dark .conversation-modal-item:hover {
-  background: #27272a;
+  background: #222226;
   border-color: #3f3f46;
 }
 
 .conversation-modal-item.active {
-  background: #f4f4f5;
-  border-color: #d4d4d8;
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
 
 html.dark .conversation-modal-item.active {
   background: #27272a;
-  border-color: #3f3f46;
+  border-color: #52525b;
+}
+
+.conversation-slide-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: #71717a;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.conversation-modal-item:hover .conversation-slide-trigger,
+.conversation-modal-item.swiped .conversation-slide-trigger {
+  opacity: 1;
+}
+
+.conversation-slide-trigger:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.12);
 }
 
 .conversation-modal-item-content {
