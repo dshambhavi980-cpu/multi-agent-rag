@@ -1132,7 +1132,7 @@ const PromptBar: React.FC<PromptBarProps> = ({
 
         <div
 
-          className="absolute inset-x-0 bottom-[calc(100%+8px)] z-[2] origin-bottom rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 p-1 shadow-xl [animation:prompt-bar-pop_180ms_cubic-bezier(0.23,1,0.32,1)_both] [background:var(--pb-menu)] data-[kind=at]:right-auto data-[kind=at]:w-[340px] data-[kind=at]:max-w-[calc(100vw-32px)] data-[kind=at]:origin-bottom-left data-[kind=slash]:right-auto data-[kind=slash]:w-[320px] data-[kind=slash]:max-w-[calc(100vw-32px)] data-[kind=slash]:origin-bottom-left data-[kind=model]:right-auto data-[kind=model]:w-[200px] data-[kind=model]:origin-bottom-left data-[kind=effort]:right-auto data-[kind=effort]:w-[248px] data-[kind=effort]:origin-bottom-left data-[kind=effort]:px-3.5 data-[kind=effort]:pt-3 data-[kind=effort]:pb-3.5 motion-reduce:[animation:none]"
+          className="absolute inset-x-0 bottom-[calc(100%+8px)] z-[2] origin-bottom rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 p-1 shadow-xl overflow-hidden [animation:prompt-bar-pop_180ms_cubic-bezier(0.23,1,0.32,1)_both] [background:var(--pb-menu)] data-[kind=at]:right-auto data-[kind=at]:w-[400px] data-[kind=at]:max-w-[calc(100vw-32px)] data-[kind=at]:origin-bottom-left data-[kind=slash]:right-auto data-[kind=slash]:w-[320px] data-[kind=slash]:max-w-[calc(100vw-32px)] data-[kind=slash]:origin-bottom-left data-[kind=model]:right-auto data-[kind=model]:w-[200px] data-[kind=model]:origin-bottom-left data-[kind=effort]:right-auto data-[kind=effort]:w-[248px] data-[kind=effort]:origin-bottom-left data-[kind=effort]:px-3.5 data-[kind=effort]:pt-3 data-[kind=effort]:pb-3.5 motion-reduce:[animation:none]"
 
           role={open === 'effort' ? 'dialog' : 'listbox'}
 
@@ -1282,7 +1282,7 @@ const PromptBar: React.FC<PromptBarProps> = ({
 
                   aria-selected={i === cursor}
 
-                  className="relative z-[1] flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-2 text-left text-inherit outline-none [font:inherit] [-webkit-tap-highlight-color:transparent]"
+                  className="relative z-[1] flex h-9 w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-lg border-0 bg-transparent px-2 text-left text-inherit outline-none overflow-hidden [font:inherit] [-webkit-tap-highlight-color:transparent]"
 
                   onMouseDown={e => e.preventDefault()}
 
@@ -1302,11 +1302,11 @@ const PromptBar: React.FC<PromptBarProps> = ({
 
                   ) : null}
 
-                  <span className="flex-none text-[13px] font-medium">{row.name}</span>
+                  <span className="min-w-0 shrink truncate text-[13px] font-medium" title={row.name}>{row.name}</span>
 
                   {row.description ? (
 
-                    <span className="min-w-0 flex-auto truncate text-[12px] [color:color-mix(in_srgb,var(--pb-ink)_55%,transparent)]">
+                    <span className="min-w-0 flex-auto truncate text-[12px] [color:color-mix(in_srgb,var(--pb-ink)_55%,transparent)]" title={row.description}>
 
                       {row.description}
 
@@ -1346,7 +1346,7 @@ const PromptBar: React.FC<PromptBarProps> = ({
 
               {list.length === 0 ? (
 
-                <div className="flex h-9 items-center px-2 text-[12px] [color:color-mix(in_srgb,var(--pb-ink)_55%,transparent)]">
+                <div className="flex h-9 items-center px-2 min-w-0 truncate text-[12px] [color:color-mix(in_srgb,var(--pb-ink)_55%,transparent)]">
 
                   No matches for “{query}”
 
