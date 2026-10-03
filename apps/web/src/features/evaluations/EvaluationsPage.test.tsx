@@ -72,6 +72,14 @@ function successfulRequest(path: string, options?: RequestInit) {
       thresholds: { citation_precision: 0.95 },
     });
   }
+  if (path.endsWith("/corpus-status")) {
+    return Promise.resolve({
+      ready: true,
+      indexed_count: 3,
+      total_count: 3,
+      documents: [],
+    });
+  }
   if (options?.method === "POST") return Promise.resolve(evaluation);
   if (path === "/v1/evaluations?limit=50") {
     return Promise.resolve({ items: [evaluation], next_cursor: null });

@@ -133,6 +133,46 @@ export function EvaluationsPage() {
     evaluations.error instanceof ApiClientError && evaluations.error.status === 404;
   const selected = detail.data;
 
+  const corpusStatus = useQuery({
+    queryKey: ["evaluation-corpus", workspaceId],
+    enabled: Boolean(session && workspaceId),
+    queryFn: () =>
+      requestJson<{
+        ready: boolean;
+        indexed_count: number;
+        total_count: number;
+        documents: Array<{ filename: string; status: string }>;
+      }>("/v1/evaluations/corpus-status", { headers }),
+    refetchInterval: (query) => (!query.state.data?.ready ? 4_000 : false),
+  });
+
+  const seedCorpus = useMutation({
+    mutationFn: () =>
+      requestJson<{ seeded: string[]; already_present: string[]; status: string }>(
+        "/v1/evaluations/seed-corpus",
+        {
+          method: "POST",
+          headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+        },
+      ),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["evaluation-corpus", workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ["documents", workspaceId] });
+    },
+  });
+
+  const cancelEvaluation = useMutation({
+    mutationFn: (evaluationId: string) =>
+      requestJson<Evaluation>(`/v1/evaluations/${evaluationId}/cancel`, {
+        method: "POST",
+        headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
+      }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["evaluations", workspaceId] });
+      await queryClient.invalidateQueries({ queryKey: ["evaluation", workspaceId, activeId] });
+    },
+  });
+
   return (
     <section aria-labelledby="evaluations-title">
       <div className="page-heading">
@@ -164,6 +204,18 @@ export function EvaluationsPage() {
           >
             <HugeiconsIcon icon={PlayIcon} size={16} strokeWidth={1.8} /> {create.isPending ? "Starting..." : "Run evaluation"}
           </button>
+          {selected && ["queued", "running"].includes(selected.status) ? (
+            <button
+              className="secondary-button bordered cancel-eval-btn"
+              type="button"
+              disabled={cancelEvaluation.isPending}
+              onClick={() => {
+                if (selected?.id) cancelEvaluation.mutate(selected.id);
+              }}
+            >
+              {cancelEvaluation.isPending ? "Cancelling..." : "Cancel run"}
+            </button>
+          ) : null}
           <button
             className="icon-button bordered"
             type="button"
@@ -174,6 +226,25 @@ export function EvaluationsPage() {
           </button>
         </div>
       </div>
+
+      {corpusStatus.data && !corpusStatus.data.ready ? (
+        <div className="benchmark-corpus-card">
+          <div className="benchmark-corpus-info">
+            <h4>Phase 12 Benchmark Runbooks ({corpusStatus.data.indexed_count}/{corpusStatus.data.total_count} ready)</h4>
+            <p>
+              The 50 reviewed evaluation cases test questions against the Phase 12 reference runbooks (<code>operations.md</code>, <code>recovery.md</code>, <code>security.md</code>). Seed them to run evaluations and verify quality gates in this workspace.
+            </p>
+          </div>
+          <button
+            className="secondary-button bordered seed-corpus-btn"
+            type="button"
+            disabled={seedCorpus.isPending}
+            onClick={() => seedCorpus.mutate()}
+          >
+            {seedCorpus.isPending ? "Seeding..." : "Seed Benchmark Runbooks"}
+          </button>
+        </div>
+      ) : null}
 
       <div className="evaluation-launcher">
         <div className="evaluation-launcher-intro">
@@ -303,7 +374,7 @@ export function EvaluationsPage() {
                 <div className="evaluation-results">
                   {selected.results.slice(0, 100).map((result) => (
                     <div key={result.id}>
-                      <span className={`run-status-dot run-${result.status}`} />
+                      <span className={`eval-status-badge eval-status-${result.status}`}>{result.status}</span>
                       <strong>{result.case_id}</strong>
                       <span>{result.variant}</span>
                       <time>{Math.round(result.latency_ms)} ms</time>

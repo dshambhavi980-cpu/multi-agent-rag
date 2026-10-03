@@ -297,7 +297,9 @@ class GroundedRagService:
                     actor_id=actor_id,
                     request_id=request_id,
                     body=body,
-                    route_reason=decision.reason,
+                    route_reason=(
+                        "evaluation" if idempotency_key.startswith("eval-") else decision.reason
+                    ),
                     conversation_id=conversation_id,
                     source_message_id=accepted.message_id,
                 )
@@ -674,6 +676,7 @@ class GroundedRagService:
             "conversation_id": str(conversation_id),
             "source_message_id": str(source_message_id),
             "memory_context": memory_context,
+            "is_evaluation": route_reason == "evaluation",
         }
         await self._execute_agentic_state(state)
 

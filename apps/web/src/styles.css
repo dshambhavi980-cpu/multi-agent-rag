@@ -2687,8 +2687,58 @@ html.dark .page-heading-toolbar .evaluation-case-count input {
   display: grid;
   font-size: 11px;
   gap: 8px;
-  grid-template-columns: 10px minmax(0, 1fr) 90px 60px;
+  grid-template-columns: 56px minmax(0, 1fr) 90px 60px;
   min-height: 38px;
+}
+
+.eval-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.eval-status-badge.eval-status-passed {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.eval-status-badge.eval-status-failed {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.eval-status-badge.eval-status-error {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+.benchmark-corpus-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.benchmark-corpus-info h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.benchmark-corpus-info p {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
 }
 
 .evaluation-results time {
@@ -4707,6 +4757,34 @@ html.dark .evaluation-results > div {
 
 html.dark .evaluation-results time {
   color: #71717a;
+}
+
+html.dark .eval-status-badge.eval-status-passed {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+
+html.dark .eval-status-badge.eval-status-failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+html.dark .eval-status-badge.eval-status-error {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+html.dark .benchmark-corpus-card {
+  border-color: #27272a;
+  background: #18181b;
+}
+
+html.dark .benchmark-corpus-info h4 {
+  color: #fafafa;
+}
+
+html.dark .benchmark-corpus-info p {
+  color: #a1a1aa;
 }
 
 /* Settings View */

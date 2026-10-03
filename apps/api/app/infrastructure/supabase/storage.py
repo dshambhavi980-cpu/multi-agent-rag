@@ -122,6 +122,29 @@ class SupabaseStorageClient:
         self._raise(response, "The document asset could not be uploaded.")
         return f"{self.base_url}/storage/v1/object/public/document-assets/{encoded}"
 
+    async def upload(
+        self, path: str, data: bytes, content_type: str = "text/markdown"
+    ) -> None:
+        if self.service_key is None:
+            raise ApplicationError(
+                "SERVICE_ROLE_NOT_CONFIGURED",
+                "Storage upload unavailable",
+                "APP_SUPABASE_SERVICE_ROLE_KEY is required by the backend.",
+                status=503,
+            )
+        encoded = quote(path, safe="/")
+        response = await self._client.post(
+            f"{self.base_url}/storage/v1/object/{BUCKET}/{encoded}",
+            headers={
+                "apikey": self.service_key,
+                "Authorization": f"Bearer {self.service_key}",
+                "Content-Type": content_type,
+                "x-upsert": "true",
+            },
+            content=data,
+        )
+        self._raise(response, "The document object could not be stored.")
+
     @staticmethod
     def _raise(response: httpx.Response, detail: str) -> None:
         if response.is_success:
@@ -162,6 +185,17 @@ class UnavailableStorageClient:
     async def upload_public(
         self, path: str, data: bytes, content_type: str = "image/png"
     ) -> str:
+        del path, data, content_type
+        raise ApplicationError(
+            "STORAGE_NOT_CONFIGURED",
+            "Storage unavailable",
+            "Supabase Storage is not configured.",
+            status=503,
+        )
+
+    async def upload(
+        self, path: str, data: bytes, content_type: str = "text/markdown"
+    ) -> None:
         del path, data, content_type
         raise ApplicationError(
             "STORAGE_NOT_CONFIGURED",

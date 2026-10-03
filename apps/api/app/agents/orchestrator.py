@@ -250,6 +250,9 @@ class AgentOrchestrator:
                     "review_score": 1.0 if not allowed else 0.0,
                     "_summary": "Rejected unsupported output and selected the safe fallback.",
                 }
+            is_dangerous, risk_score, risk_level, risk_reasons = self._assess_risk(
+                current["question"], current.get("draft", ""), valid
+            )
             coverage = len(used) / max(len(allowed), 1)
             review_score = len(valid) / max(reviewed, 1)
             return {
@@ -258,12 +261,52 @@ class AgentOrchestrator:
                 "citation_ids": sorted(used, key=lambda value: int(value[1:])),
                 "coverage": coverage,
                 "review_score": review_score,
+                "is_dangerous": is_dangerous,
+                "risk_score": risk_score,
+                "risk_level": risk_level,
+                "risk_reasons": risk_reasons,
                 "_summary": (
-                    f"Accepted {len(valid)} cited claims and rejected {reviewed - len(valid)}."
+                    f"Accepted {len(valid)} cited claims and rejected {reviewed - len(valid)}. "
+                    f"Risk: {risk_level} ({risk_score:.2f})."
                 ),
             }
 
         return await self._node("reviewer", "complete", state, work)
+
+    def _assess_risk(
+        self, question: str, draft: str, valid: list[str]
+    ) -> tuple[bool, float, str, list[str]]:
+        reasons: list[str] = []
+        lowered_q = question.lower().strip()
+
+        destructive_patterns = [
+            r"\b(delete|destroy|drop|wipe|purge|remove)\s+(workspace|database|table|document|file|record|account)\b",
+            r"\b(transfer\s+ownership|grant\s+admin|modify\s+role|change\s+my\s+role)\b",
+            r"\b(execute\s+payment|send\s+money|charge\s+card|wire\s+funds)\b",
+            r"\b(deploy\s+(?:now|immediately|to\s+production)|restart\s+production)\b",
+        ]
+        is_destructive = any(re.search(pat, lowered_q) for pat in destructive_patterns)
+        if is_destructive:
+            reasons.append("The request instructs the system to perform an irreversible or destructive state-modifying action.")
+
+        adversarial_patterns = [
+            r"ignore\s+(?:all\s+)?previous\s+instructions",
+            r"system\s+override",
+            r"bypass\s+(?:identity\s+)?verification",
+            r"reveal\s+(?:all\s+)?(?:secret|credential|token|api\s*key|password)s?",
+            r"reveal\s+documents\s+from\s+another\s+workspace",
+            r"use\s+another\s+tenant",
+        ]
+        is_adversarial = any(re.search(pat, lowered_q) for pat in adversarial_patterns)
+        if is_adversarial:
+            reasons.append("Potential prompt injection, privilege escalation, or secret exfiltration detected.")
+
+        if is_destructive:
+            return True, 0.95, "critical", reasons
+        if is_adversarial:
+            return True, 0.85, "high", reasons
+
+        return False, 0.05, "low", []
 
     async def _node(
         self,
@@ -463,4 +506,8 @@ class AgentOrchestrator:
             citation_ids=state.get("citation_ids", []),
             retrieval_trace_ids=state.get("retrieval_trace_ids", []),
             step_count=state["step_count"],
+            is_dangerous=bool(state.get("is_dangerous", False)),
+            risk_score=float(state.get("risk_score", 0.0)),
+            risk_level=str(state.get("risk_level", "low")),
+            risk_reasons=cast(list[str], state.get("risk_reasons", [])),
         )

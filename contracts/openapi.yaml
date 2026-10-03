@@ -996,6 +996,45 @@ paths:
         "429":
           $ref: "#/components/responses/RateLimited"
 
+  /v1/evaluations/corpus-status:
+    get:
+      tags: [Evaluations]
+      operationId: getEvaluationCorpusStatus
+      summary: Check if the Phase 12 benchmark reference documents are seeded
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+      responses:
+        "200":
+          description: Status of the benchmark corpus in the workspace
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /v1/evaluations/seed-corpus:
+    post:
+      tags: [Evaluations]
+      operationId: seedEvaluationCorpus
+      summary: Seed Phase 12 benchmark reference runbooks into the workspace
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Result of the seed operation
+          content:
+            application/json:
+              schema:
+                type: object
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
   /v1/evaluations/{evaluationId}:
     get:
       tags: [Evaluations]
@@ -1007,6 +1046,29 @@ paths:
       responses:
         "200":
           description: Evaluation run
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EvaluationRun"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /v1/evaluations/{evaluationId}/cancel:
+    post:
+      tags: [Evaluations]
+      operationId: cancelEvaluationRun
+      summary: Cancel an active evaluation run
+      parameters:
+        - $ref: "#/components/parameters/WorkspaceId"
+        - $ref: "#/components/parameters/EvaluationId"
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "200":
+          description: Cancelled evaluation run
           content:
             application/json:
               schema:

@@ -200,6 +200,15 @@ class EvaluationRoutes:
         assert kwargs["idempotency_key"] == "0123456789abcdef"
         return EvaluationRun.model_validate(evaluation("queued"))
 
+    async def cancel(self, **kwargs: Any) -> EvaluationRun:
+        return EvaluationRun.model_validate(evaluation("cancelled"))
+
+    async def seed_benchmark_corpus(self, **kwargs: Any) -> dict[str, Any]:
+        return {"seeded": ["operations.md"], "already_present": [], "status": "indexing"}
+
+    async def get_corpus_status(self, **kwargs: Any) -> dict[str, Any]:
+        return {"ready": True, "indexed_count": 3, "total_count": 3, "documents": []}
+
 
 async def test_evaluation_routes_are_workspace_authorized(client: AsyncClient) -> None:
     app = client._transport.app  # type: ignore[attr-defined]
@@ -219,12 +228,27 @@ async def test_evaluation_routes_are_workspace_authorized(client: AsyncClient) -
         headers={**headers, "Idempotency-Key": "0123456789abcdef"},
         json={"variants": ["hybrid"], "max_cases": 5},
     )
+    corpus_status = await client.get("/v1/evaluations/corpus-status", headers=headers)
+    seed_corpus = await client.post(
+        "/v1/evaluations/seed-corpus",
+        headers={**headers, "Idempotency-Key": "1234567890abcdef"},
+    )
+    cancel_response = await client.post(
+        f"/v1/evaluations/{EVALUATION_ID}/cancel",
+        headers={**headers, "Idempotency-Key": "fedcba0987654321"},
+    )
 
     assert suite_response.status_code == 200
     assert suite_response.json()["case_count"] == 50
     assert list_response.status_code == 200
     assert detail_response.status_code == 200
     assert create_response.status_code == 202
+    assert corpus_status.status_code == 200
+    assert corpus_status.json()["ready"] is True
+    assert seed_corpus.status_code == 200
+    assert seed_corpus.json()["status"] == "indexing"
+    assert cancel_response.status_code == 200
+    assert cancel_response.json()["status"] == "cancelled"
 
 
 class ExecutingRag:

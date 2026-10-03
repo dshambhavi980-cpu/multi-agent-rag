@@ -48,6 +48,11 @@ class AgentState(TypedDict):
     review_score: NotRequired[float]
     answer_status: NotRequired[str]
     reviewer_feedback: NotRequired[str]
+    is_dangerous: NotRequired[bool]
+    risk_score: NotRequired[float]
+    risk_level: NotRequired[str]
+    risk_reasons: NotRequired[list[str]]
+    is_evaluation: NotRequired[bool]
 
 
 class AgentResult(BaseModel):
@@ -60,3 +65,7 @@ class AgentResult(BaseModel):
     citation_ids: list[str]
     retrieval_trace_ids: list[str]
     step_count: int = Field(ge=0, le=8)
+    is_dangerous: bool = False
+    risk_score: float = Field(default=0.0, ge=0, le=1)
+    risk_level: str = "low"
+    risk_reasons: list[str] = Field(default_factory=list)

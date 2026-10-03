@@ -1,12 +1,14 @@
 import asyncio
+import hashlib
 import json
 import statistics
 from collections import defaultdict
 from collections.abc import Sequence
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import perf_counter
 from typing import Any, cast
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.api.errors import ApplicationError
 from app.core.logging import get_logger
@@ -128,8 +130,8 @@ class EvaluationService:
         body: CreateEvaluationRequest,
     ) -> EvaluationRun:
         cases = cast(list[dict[str, Any]], self._suite["cases"])[: body.max_cases]
-        created = EvaluationRun.model_validate(
-            await self.admin.rpc(
+        try:
+            raw_created = await self.admin.rpc(
                 "create_evaluation_run",
                 {
                     "p_workspace_id": str(workspace_id),
@@ -141,7 +143,40 @@ class EvaluationService:
                     "p_request_key": idempotency_key,
                 },
             )
-        )
+        except Exception as exc:
+            if "already running" in str(exc).lower() and not self._tasks:
+                page = await self.list_runs(workspace_id=workspace_id, actor_id=actor_id, limit=10)
+                for item in page.items:
+                    if item.status in ("queued", "running"):
+                        await self.admin.rpc(
+                            "complete_evaluation_run",
+                            {
+                                "p_evaluation_id": str(item.id),
+                                "p_workspace_id": str(workspace_id),
+                                "p_metrics": {},
+                                "p_gate_passed": False,
+                                "p_gate_failures": ["process_restarted"],
+                                "p_error": {
+                                    "code": "PROCESS_RESTARTED",
+                                    "detail": "Interrupted evaluation was cleared after server restart.",
+                                },
+                            },
+                        )
+                raw_created = await self.admin.rpc(
+                    "create_evaluation_run",
+                    {
+                        "p_workspace_id": str(workspace_id),
+                        "p_actor_id": str(actor_id),
+                        "p_suite": body.suite,
+                        "p_suite_version": self._suite["version"],
+                        "p_variants": body.variants,
+                        "p_case_count": len(cases),
+                        "p_request_key": idempotency_key,
+                    },
+                )
+            else:
+                raise
+        created = EvaluationRun.model_validate(raw_created)
         if created.status == "queued" and created.id not in self._tasks:
             task = asyncio.create_task(
                 self._execute(
@@ -157,6 +192,155 @@ class EvaluationService:
             self._tasks[created.id] = task
             task.add_done_callback(lambda _: self._tasks.pop(created.id, None))
         return created
+
+    async def cancel(
+        self,
+        *,
+        workspace_id: UUID,
+        actor_id: UUID,
+        evaluation_id: UUID,
+    ) -> EvaluationRun:
+        task = self._tasks.get(evaluation_id)
+        if task is not None and not task.done():
+            task.cancel()
+        await self.admin.rpc(
+            "complete_evaluation_run",
+            {
+                "p_evaluation_id": str(evaluation_id),
+                "p_workspace_id": str(workspace_id),
+                "p_metrics": {},
+                "p_gate_passed": False,
+                "p_gate_failures": ["cancelled_by_user"],
+                "p_error": {"code": "CANCELLED", "detail": "Evaluation run was cancelled by user."},
+            },
+        )
+        return await self.get(
+            workspace_id=workspace_id,
+            actor_id=actor_id,
+            evaluation_id=evaluation_id,
+        )
+
+    async def seed_benchmark_corpus(
+        self,
+        *,
+        workspace_id: UUID,
+        actor_id: UUID,
+        access_token: str,
+        app_state: Any,
+    ) -> dict[str, Any]:
+        corpus_dir = Path(__file__).resolve().parents[4] / "benchmarks" / "retrieval" / "corpus"
+        if not corpus_dir.is_dir():
+            corpus_dir = Path("benchmarks/retrieval/corpus").resolve()
+
+        corpus_files = ["operations.md", "recovery.md", "security.md"]
+        data_client = getattr(app_state, "supabase_data", None)
+        storage_client = getattr(app_state, "supabase_storage", None)
+        worker = getattr(app_state, "ingestion_worker", None)
+
+        existing_filenames: set[str] = set()
+        if data_client is not None:
+            try:
+                docs = await data_client.list_documents(
+                    access_token=access_token, workspace_id=workspace_id, limit=50
+                )
+                existing_filenames = {doc.filename for doc in docs if doc.status != "failed"}
+            except Exception:
+                pass
+
+        seeded = []
+        already_present = []
+        for filename in corpus_files:
+            file_path = corpus_dir / filename
+            if not file_path.exists():
+                continue
+            if filename in existing_filenames:
+                already_present.append(filename)
+                continue
+
+            content = file_path.read_bytes()
+            actual_hash = hashlib.sha256(content).hexdigest()
+            upload_id = uuid4()
+            expires_at = datetime.now(UTC) + timedelta(hours=2)
+            object_path = f"{workspace_id}/{actor_id}/{upload_id}/source.md"
+
+            if data_client is not None:
+                await data_client.create_upload_session(
+                    access_token=access_token,
+                    record={
+                        "id": str(upload_id),
+                        "workspace_id": str(workspace_id),
+                        "uploaded_by": str(actor_id),
+                        "object_path": object_path,
+                        "filename": filename,
+                        "expected_content_type": "text/markdown",
+                        "expected_size_bytes": len(content),
+                        "expected_sha256": actual_hash,
+                        "expires_at": expires_at.isoformat(),
+                    },
+                )
+            if storage_client is not None:
+                await storage_client.upload(object_path, content, "text/markdown")
+
+            await self.admin.rpc(
+                "finalize_document_upload",
+                {
+                    "p_upload_id": str(upload_id),
+                    "p_actor_id": str(actor_id),
+                    "p_actual_sha256": actual_hash,
+                    "p_actual_size_bytes": len(content),
+                    "p_actual_content_type": "text/markdown",
+                    "p_request_id": str(uuid4()),
+                    "p_title": filename.replace(".md", "").replace("_", " ").title(),
+                    "p_tags": ["benchmark", "phase12"],
+                },
+            )
+            if worker is not None:
+                if hasattr(worker, "cache_document_content"):
+                    worker.cache_document_content(object_path, content)
+                if hasattr(worker, "notify"):
+                    worker.notify()
+            seeded.append(filename)
+
+        return {
+            "seeded": seeded,
+            "already_present": already_present,
+            "total_benchmark_files": len(corpus_files),
+            "status": "ready" if not seeded else "indexing",
+        }
+
+    async def get_corpus_status(
+        self,
+        *,
+        workspace_id: UUID,
+        access_token: str,
+        app_state: Any,
+    ) -> dict[str, Any]:
+        corpus_files = ["operations.md", "recovery.md", "security.md"]
+        data_client = getattr(app_state, "supabase_data", None)
+        existing: dict[str, str] = {}
+        if data_client is not None:
+            try:
+                docs = await data_client.list_documents(
+                    access_token=access_token, workspace_id=workspace_id, limit=50
+                )
+                for doc in docs:
+                    if doc.filename in corpus_files:
+                        existing[doc.filename] = doc.status
+            except Exception:
+                pass
+
+        all_ready = len(existing) == len(corpus_files) and all(
+            status == "ready" for status in existing.values()
+        )
+        return {
+            "ready": all_ready,
+            "indexed_count": sum(1 for status in existing.values() if status == "ready"),
+            "total_count": len(corpus_files),
+            "documents": [
+                {"filename": fn, "status": existing.get(fn, "missing")}
+                for fn in corpus_files
+            ],
+        }
 
     async def _execute(  # noqa: PLR0913
         self,

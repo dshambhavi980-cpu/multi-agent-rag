@@ -33,8 +33,24 @@ class ApprovalService:
         result: AgentResult,
         citations: list[dict[str, Any]],
     ) -> Approval | None:
+        if state.get("is_evaluation") or state.get("route_reason") == "evaluation":
+            return None
         reasons: list[str] = []
         risk_level: Literal["low", "medium", "high", "critical"] = "low"
+
+        # 1. Agent-determined danger & risk score
+        if getattr(result, "is_dangerous", False) or getattr(result, "risk_score", 0.0) >= 0.75:
+            reasons.extend(
+                getattr(result, "risk_reasons", [])
+                or ["The agent identified an operation requiring human authorization."]
+            )
+            risk_level = (
+                "critical"
+                if getattr(result, "risk_level", "") == "critical"
+                else "high"
+            )
+
+        # 2. Confidence and coverage checks
         if (
             result.answer_status == "grounded"
             and result.confidence < self.config.confidence_threshold
@@ -43,7 +59,8 @@ class ApprovalService:
                 f"Confidence {result.confidence:.2f} is below "
                 f"{self.config.confidence_threshold:.2f}."
             )
-            risk_level = "medium"
+            if risk_level == "low":
+                risk_level = "medium"
         coverage = len(result.citation_ids) / max(len(result.evidence), 1)
         if (
             result.answer_status == "grounded"
@@ -53,7 +70,8 @@ class ApprovalService:
                 f"Citation coverage {coverage:.2f} is below "
                 f"{self.config.citation_coverage_threshold:.2f}."
             )
-            risk_level = "medium"
+            if risk_level == "low":
+                risk_level = "medium"
         if SENSITIVE_REQUEST.search(state["question"]):
             reasons.append("The request contains a sensitive or external-action intent.")
             risk_level = "high"
