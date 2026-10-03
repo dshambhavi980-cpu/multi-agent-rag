@@ -332,13 +332,17 @@ export function EvaluationsPage() {
                     setSelectedId(evaluation.id);
                   }}
                 >
-                  <div>
+                  <div className="evaluation-row-top">
                     <strong>{evaluation.suite}</strong>
-                    <p>{evaluation.variants.join(", ")}</p>
+                    <span className={`status-badge status-${evaluation.status}`}>
+                      {evaluation.status}
+                    </span>
                   </div>
-                  <span className="status-badge">{evaluation.status}</span>
-                  <span>{evaluation.case_count} cases</span>
-                  <time>{new Date(evaluation.created_at).toLocaleDateString()}</time>
+                  <p className="evaluation-row-variants">{evaluation.variants.join(", ")}</p>
+                  <div className="evaluation-row-bottom">
+                    <span>{evaluation.case_count} cases</span>
+                    <time>{new Date(evaluation.created_at).toLocaleDateString()}</time>
+                  </div>
                 </button>
               ))}
             </div>
@@ -371,18 +375,20 @@ export function EvaluationsPage() {
                   </div>
                 ) : null}
                 <h3>Case results</h3>
-                <div className="evaluation-results">
-                  {selected.results.slice(0, 100).map((result) => (
-                    <div key={result.id}>
-                      <span className={`eval-status-badge eval-status-${result.status}`}>{result.status}</span>
-                      <strong>{result.case_id}</strong>
-                      <span>{result.variant}</span>
-                      <time>{Math.round(result.latency_ms)} ms</time>
-                    </div>
-                  ))}
-                  {!selected.results.length ? (
-                    <p className="table-message">Results appear as the run progresses.</p>
-                  ) : null}
+                <div className="evaluation-results-card">
+                  <div className="evaluation-results">
+                    {selected.results.slice(0, 100).map((result) => (
+                      <div key={result.id}>
+                        <span className={`eval-status-badge eval-status-${result.status}`}>{result.status}</span>
+                        <strong>{result.case_id}</strong>
+                        <span>{result.variant}</span>
+                        <time>{Math.round(result.latency_ms)} ms</time>
+                      </div>
+                    ))}
+                    {!selected.results.length ? (
+                      <p className="table-message">Results appear as the run progresses.</p>
+                    ) : null}
+                  </div>
                 </div>
               </>
             ) : null}
