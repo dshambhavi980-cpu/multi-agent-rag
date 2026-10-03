@@ -183,9 +183,9 @@ export function ChatPage() {
     if (typeof window === "undefined" || !workspaceId) return null;
     return window.sessionStorage.getItem(`docpilot:active_conversation:${workspaceId}`);
   });
-  const [swipedId, setSwipedId] = useState<string | null>(null);
-  const touchStartXRef = useRef<number | null>(null);
-  const mouseStartXRef = useRef<number | null>(null);
+  const [conversationToDelete, setConversationToDelete] = useState<Conversation | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const currentRunIdRef = useRef<string | null>(null);
   const [question, setQuestion] = useState("");
   const [mode, setMode] = useState<Mode>("auto");
   const [selectedDocuments, setSelectedDocuments] = useState<string[]>([]);
@@ -225,15 +225,19 @@ export function ChatPage() {
   };
 
   useEffect(() => {
-    if (!conversationsOpen) return;
+    if (!conversationsOpen && !conversationToDelete) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setConversationsOpen(false);
+        if (conversationToDelete) {
+          setConversationToDelete(null);
+        } else {
+          setConversationsOpen(false);
+        }
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [conversationsOpen]);
+  }, [conversationsOpen, conversationToDelete]);
 
   useEffect(() => {
     if (!sending) {
@@ -352,18 +356,66 @@ export function ChatPage() {
       });
       return convId;
     },
-    onSuccess: (deletedId) => {
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["conversations", workspaceId] });
-      queryClient.removeQueries({ queryKey: ["conversation", workspaceId, deletedId] });
-      if (activeId === deletedId || selectedId === deletedId) {
-        resetDraft();
-        if (storageKey) {
-          window.sessionStorage.removeItem(storageKey);
-        }
-      }
-      setSwipedId(null);
     },
   });
+
+  const executeDelete = (targetId: string) => {
+    // 1. Optimistic removal from cache - disappears instantly in 0ms!
+    queryClient.setQueryData<ConversationPage>(["conversations", workspaceId], (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        items: old.items.filter((item) => item.id !== targetId),
+      };
+    });
+
+    // 2. Remove query cache for the deleted conversation
+    queryClient.removeQueries({ queryKey: ["conversation", workspaceId, targetId] });
+
+    // 3. If currently active conversation is deleted, switch or reset immediately!
+    if (activeId === targetId || selectedId === targetId) {
+      if (storageKey) {
+        window.sessionStorage.removeItem(storageKey);
+      }
+      const remaining = (conversations.data?.items ?? []).filter((item) => item.id !== targetId);
+      if (remaining.length > 0 && remaining[0]) {
+        const nextId = remaining[0].id;
+        setSelectedId(nextId);
+        if (storageKey) {
+          window.sessionStorage.setItem(storageKey, nextId);
+        }
+      } else {
+        resetDraft();
+      }
+    }
+
+    // 4. Fire background delete request
+    deleteConversationMutation.mutate(targetId);
+  };
+
+  const stopChat = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (currentRunIdRef.current) {
+      const runId = currentRunIdRef.current;
+      currentRunIdRef.current = null;
+      void requestJson(`/v1/runs/${runId}/cancel`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({}),
+      }).catch(() => {});
+    }
+    if (streamIntervalRef.current) {
+      clearInterval(streamIntervalRef.current);
+      streamIntervalRef.current = null;
+    }
+    setSending(false);
+    setRunState(null);
+  };
 
   const resetDraft = () => {
     setSelectedId("new");
@@ -421,6 +473,8 @@ export function ChatPage() {
     const activeMode = (detail?.model?.key as Mode | undefined) ?? mode;
     setSending(true);
     setError(null);
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
     setStreamed("");
     fullStreamedRef.current = "";
     displayedStreamedRef.current = "";
@@ -438,6 +492,7 @@ export function ChatPage() {
           method: "POST",
           headers: { ...headers, "Idempotency-Key": crypto.randomUUID() },
           body: JSON.stringify({ title: content.slice(0, 80) }),
+          signal: controller.signal,
         });
         conversationId = created.id;
         setSelectedId(created.id);
@@ -455,18 +510,21 @@ export function ChatPage() {
             document_ids: selectedDocuments.length ? selectedDocuments : null,
             force_mode: activeMode,
           }),
+          signal: controller.signal,
         },
       );
+      currentRunIdRef.current = accepted.run_id;
       setRunState(accepted.status);
-      await streamSse(accepted.events_url, { headers }, handleEvent);
+      await streamSse(accepted.events_url, { ...headers, signal: controller.signal }, handleEvent);
 
       // Drain remaining buffered stream smoothly so all words finish revealing
       while (displayedStreamedRef.current.length < fullStreamedRef.current.length) {
+        if (controller.signal.aborted) break;
         await new Promise((r) => setTimeout(r, 25));
       }
       await new Promise((r) => setTimeout(r, 60));
 
-      if (activeMode !== "simple" && agentStepsRef.current.length > 0) {
+      if (activeMode !== "simple" && agentStepsRef.current.length > 0 && !controller.signal.aborted) {
         const finalSteps = [...agentStepsRef.current];
         const duration = lastThoughtDurationRef.current || 1.8;
         setThoughtsByMessageId((prev) => {
@@ -496,9 +554,14 @@ export function ChatPage() {
       displayedStreamedRef.current = "";
       setStreamCitations([]);
     } catch (caught) {
+      if (controller.signal.aborted || (caught instanceof Error && caught.name === "AbortError")) {
+        return;
+      }
       setError(friendlyError(caught));
     } finally {
       setSending(false);
+      abortControllerRef.current = null;
+      currentRunIdRef.current = null;
     }
   };
 
@@ -782,6 +845,7 @@ export function ChatPage() {
                 }
                 void send(undefined, text, detail);
               }}
+              onStop={stopChat}
               onDictate={handleDictate}
               background={isDark ? "#18181b" : "#ffffff"}
               color={isDark ? "#f4f4f5" : "#09090b"}
@@ -983,75 +1047,15 @@ export function ChatPage() {
               {filteredConversations.length > 0 ? (
                 filteredConversations.map((conversation) => {
                   const isActive = activeId === conversation.id;
-                  const isSwiped = swipedId === conversation.id;
                   return (
-                    <div key={conversation.id} className="conversation-item-wrapper">
-                      <div className="conversation-delete-action">
-                        <button
-                          type="button"
-                          className="conversation-delete-btn"
-                          aria-label="Confirm delete conversation"
-                          disabled={deleteConversationMutation.isPending}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteConversationMutation.mutate(conversation.id);
-                          }}
-                        >
-                          <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={2} />
-                          <span>Delete</span>
-                        </button>
-                      </div>
-                      <div
-                        role="button"
-                        tabIndex={0}
-                        className={`conversation-modal-item ${isActive ? "active" : ""} ${isSwiped ? "swiped" : ""}`}
-                        onTouchStart={(e) => {
-                          touchStartXRef.current = e.touches[0]?.clientX ?? null;
-                        }}
-                        onTouchEnd={(e) => {
-                          const touch = e.changedTouches[0];
-                          if (touchStartXRef.current !== null && touch) {
-                            const diff = touchStartXRef.current - touch.clientX;
-                            if (diff > 35) setSwipedId(conversation.id);
-                            else if (diff < -35) setSwipedId(null);
-                            touchStartXRef.current = null;
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          mouseStartXRef.current = e.clientX;
-                        }}
-                        onMouseUp={(e) => {
-                          if (mouseStartXRef.current !== null) {
-                            const diff = mouseStartXRef.current - e.clientX;
-                            if (diff > 45) setSwipedId(conversation.id);
-                            else if (diff < -45) setSwipedId(null);
-                            mouseStartXRef.current = null;
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            if (isSwiped) {
-                              setSwipedId(null);
-                              return;
-                            }
-                            setSelectedId(conversation.id);
-                            if (storageKey) {
-                              window.sessionStorage.setItem(storageKey, conversation.id);
-                            }
-                            setPendingQuestion(null);
-                            setStreamed("");
-                            fullStreamedRef.current = "";
-                            displayedStreamedRef.current = "";
-                            setError(null);
-                            setConversationsOpen(false);
-                          }
-                        }}
-                        onClick={() => {
-                          if (isSwiped) {
-                            setSwipedId(null);
-                            return;
-                          }
+                    <div
+                      key={conversation.id}
+                      role="button"
+                      tabIndex={0}
+                      className={`conversation-modal-item ${isActive ? "active" : ""}`}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
                           setSelectedId(conversation.id);
                           if (storageKey) {
                             window.sessionStorage.setItem(storageKey, conversation.id);
@@ -1062,43 +1066,57 @@ export function ChatPage() {
                           displayedStreamedRef.current = "";
                           setError(null);
                           setConversationsOpen(false);
-                        }}
-                      >
-                        <div className="conversation-modal-item-content">
-                          <div className="flex items-center gap-2">
-                            <span className="conversation-modal-item-title">
-                              {(() => {
-                                const display = formatConversationDisplay(conversation.title);
-                                return display.docName
-                                  ? `${display.title} — ${display.docName}`
-                                  : display.title;
-                              })()}
-                            </span>
-                            {isActive ? (
-                              <span className="conversation-modal-item-badge">Active</span>
-                            ) : null}
-                          </div>
-                          <span className="conversation-modal-item-date">
-                            {new Date(
-                              conversation.updated_at || conversation.created_at,
-                            ).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
+                        }
+                      }}
+                      onClick={() => {
+                        setSelectedId(conversation.id);
+                        if (storageKey) {
+                          window.sessionStorage.setItem(storageKey, conversation.id);
+                        }
+                        setPendingQuestion(null);
+                        setStreamed("");
+                        fullStreamedRef.current = "";
+                        displayedStreamedRef.current = "";
+                        setError(null);
+                        setConversationsOpen(false);
+                      }}
+                    >
+                      <div className="conversation-modal-item-content">
+                        <div className="flex items-center gap-2">
+                          <span className="conversation-modal-item-title">
+                            {(() => {
+                              const display = formatConversationDisplay(conversation.title);
+                              return display.docName
+                                ? `${display.title} — ${display.docName}`
+                                : display.title;
+                            })()}
                           </span>
+                          {isActive ? (
+                            <span className="conversation-modal-item-badge">Active</span>
+                          ) : null}
                         </div>
+                        <span className="conversation-modal-item-date">
+                          {new Date(
+                            conversation.updated_at || conversation.created_at,
+                          ).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </span>
+                      </div>
+                      <div className="conversation-item-actions">
                         <button
                           type="button"
-                          className="conversation-slide-trigger"
-                          aria-label="Slide to delete"
-                          title="Slide to delete"
+                          className="conversation-item-delete-btn"
+                          aria-label="Delete conversation"
+                          title="Delete conversation"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setSwipedId((curr) => (curr === conversation.id ? null : conversation.id));
+                            setConversationToDelete(conversation);
                           }}
                         >
-                          <HugeiconsIcon icon={Delete02Icon} size={14} strokeWidth={1.8} />
+                          <HugeiconsIcon icon={Delete02Icon} size={15} strokeWidth={1.8} />
                         </button>
                         <HugeiconsIcon
                           icon={ArrowRight01Icon}
@@ -1129,6 +1147,55 @@ export function ChatPage() {
                   <p>No conversations yet. Start a new chat.</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {conversationToDelete ? (
+        <div
+          className="conversation-confirm-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-delete-title"
+          onClick={() => setConversationToDelete(null)}
+        >
+          <div
+            className="conversation-confirm-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="conversation-confirm-header">
+              <div className="conversation-confirm-icon-wrap">
+                <HugeiconsIcon icon={Delete02Icon} size={20} strokeWidth={2} />
+              </div>
+              <div>
+                <h3 id="confirm-delete-title">Delete conversation?</h3>
+                <p className="conversation-confirm-desc">
+                  Are you sure you want to delete &ldquo;
+                  {formatConversationDisplay(conversationToDelete.title).title}
+                  &rdquo;? All messages will be permanently removed.
+                </p>
+              </div>
+            </div>
+            <div className="conversation-confirm-actions">
+              <button
+                type="button"
+                className="conversation-confirm-cancel"
+                onClick={() => setConversationToDelete(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="conversation-confirm-delete"
+                onClick={() => {
+                  const targetId = conversationToDelete.id;
+                  setConversationToDelete(null);
+                  executeDelete(targetId);
+                }}
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>

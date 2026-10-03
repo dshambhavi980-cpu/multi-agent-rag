@@ -82,21 +82,38 @@ export async function streamSse(
   if (!response.body) throw new ApiClientError("The response stream was unavailable.", 502);
 
   const reader = response.body.getReader();
+  if (options.signal) {
+    options.signal.addEventListener(
+      "abort",
+      () => {
+        void reader.cancel().catch(() => {});
+      },
+      { once: true },
+    );
+  }
   const decoder = new TextDecoder();
   let buffer = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    buffer += decoder.decode(value, { stream: !done });
-    const frames = buffer.split("\n\n");
-    buffer = frames.pop() ?? "";
-    for (const frame of frames) {
-      const data = frame
-        .split("\n")
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.slice(5).trim())
-        .join("\n");
-      if (data.length > 0) onEvent(JSON.parse(data) as SseEvent);
+  try {
+    for (;;) {
+      if (options.signal?.aborted) break;
+      const { done, value } = await reader.read();
+      buffer += decoder.decode(value, { stream: !done });
+      const frames = buffer.split("\n\n");
+      buffer = frames.pop() ?? "";
+      for (const frame of frames) {
+        const data = frame
+          .split("\n")
+          .filter((line) => line.startsWith("data:"))
+          .map((line) => line.slice(5).trim())
+          .join("\n");
+        if (data.length > 0) onEvent(JSON.parse(data) as SseEvent);
+      }
+      if (done) break;
     }
-    if (done) break;
+  } catch (err: unknown) {
+    if (options.signal?.aborted || (err instanceof Error && err.name === "AbortError")) {
+      return;
+    }
+    throw err;
   }
 }

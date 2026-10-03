@@ -395,7 +395,7 @@ test("opens conversation search modal, filters items, and selects a thread", asy
   expect(screen.queryByRole("dialog", { name: "Conversations" })).not.toBeInTheDocument();
 });
 
-test("supports sliding left on a conversation to reveal and trigger deletion", async () => {
+test("opens confirmation dialog and instantly deletes a conversation", async () => {
   renderWithProviders(<ChatPage />);
   await screen.findAllByText("Emergency access");
 
@@ -405,19 +405,43 @@ test("supports sliding left on a conversation to reveal and trigger deletion", a
   const modal = await screen.findByRole("dialog", { name: "Conversations" });
   expect(modal).toBeInTheDocument();
 
-  const slideTrigger = within(modal).getByRole("button", { name: "Slide to delete" });
-  fireEvent.click(slideTrigger);
+  const deleteIconBtn = within(modal).getByRole("button", { name: "Delete conversation" });
+  fireEvent.click(deleteIconBtn);
 
-  const deleteBtn = within(modal).getByRole("button", { name: "Confirm delete conversation" });
-  expect(deleteBtn).toBeInTheDocument();
+  const confirmModal = await screen.findByRole("dialog", { name: "Delete conversation?" });
+  expect(confirmModal).toBeInTheDocument();
+  expect(within(confirmModal).getByText(/All messages will be permanently removed/)).toBeInTheDocument();
 
-  fireEvent.click(deleteBtn);
+  const confirmDeleteBtn = within(confirmModal).getByRole("button", { name: "Delete" });
+  fireEvent.click(confirmDeleteBtn);
+
+  expect(within(modal).queryByText("Emergency access")).not.toBeInTheDocument();
 
   await waitFor(() => {
     expect(mocks.requestJson).toHaveBeenCalledWith(
       "/v1/conversations/conversation-1",
       expect.objectContaining({ method: "DELETE" }),
     );
+  });
+});
+
+test("stops chat streaming when stop button is clicked", async () => {
+  renderWithProviders(<ChatPage />);
+  await screen.findAllByText("Emergency access");
+
+  const promptInput = screen.getByRole("textbox", { name: "Prompt" });
+  fireEvent.change(promptInput, { target: { value: "Tell me about distributed caching." } });
+
+  const sendBtn = screen.getByRole("button", { name: "Send" });
+  fireEvent.click(sendBtn);
+
+  const stopBtn = await screen.findByRole("button", { name: "Stop" });
+  expect(stopBtn).toBeInTheDocument();
+
+  fireEvent.click(stopBtn);
+
+  await waitFor(() => {
+    expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
   });
 });
 
@@ -437,5 +461,6 @@ test("persists active conversation in sessionStorage across navigation", async (
     "conversation-1",
   );
 });
+
 
 
